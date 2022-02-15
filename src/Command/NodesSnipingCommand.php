@@ -71,7 +71,7 @@ class NodesSnipingCommand extends Command
                     $this->extractData($wallet, $output, $lines);
                 } catch (\Exception $e) {
                     $this->chatter->send(new ChatMessage('❌ Error occured : '.$e->getMessage()));
-                    break 2;
+                    break;
                 }
             }
             $output->writeln('<info>Done!</info>');
@@ -124,6 +124,12 @@ class NodesSnipingCommand extends Command
                 $regex = '/(\w+).*(\d+)/';
                 $matches = [];
                 preg_match($regex, $txToken, $matches);
+                if (!array_key_exists(1, $matches)) {
+                    var_dump('WRONG REGEX');
+                    var_dump($txToken);
+                    var_dump($matches);
+                    continue;
+                }
                 if (!in_array($matches[1], $nfts)) {
                     $this->chatter->send(new ChatMessage('🖼️ New NFT minted  ('.$wallet->getName().') : '.$txToken.' at '.$txTime));
                     $wallet->addNft($matches[1]);
