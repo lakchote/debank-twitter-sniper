@@ -3,7 +3,6 @@
 namespace App\Entity;
 
 use App\Repository\WalletRepository;
-use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: WalletRepository::class)]
@@ -77,7 +76,7 @@ class Wallet
         $this->nodes[] = $node;
     }
 
-    public function getToSnipe(): ?bool
+    public function isToSnipe(): ?bool
     {
         return $this->toSnipe;
     }
@@ -87,7 +86,7 @@ class Wallet
         $this->toSnipe = $toSnipe;
     }
 
-    public function getAutoBuy(): ?bool
+    public function isAutoBuy(): ?bool
     {
         return $this->autoBuy;
     }

@@ -67,7 +67,12 @@ class NodesSnipingCommand extends Command
                     return 1;
                 }
                 $output->writeln('<info>Extracting data...</info>');
-                $this->extractData($wallet, $output, $lines);
+                try {
+                    $this->extractData($wallet, $output, $lines);
+                } catch (\Exception $e) {
+                    $this->chatter->send(new ChatMessage('❌ Error occured : '.$e->getMessage()));
+                    break 2;
+                }
             }
             $output->writeln('<info>Done!</info>');
 
@@ -127,11 +132,11 @@ class NodesSnipingCommand extends Command
             }
 
             if ($hasNode && !$hasNft) {
-                try {
-                    $txToken = $line->findElement(WebDriverBy::cssSelector(self::HISTORY_TABLE_DATA['line_tx_token']))->getAttribute('title');
-                } catch (\Exception $e) {
+                $txToken = $line->findElements(WebDriverBy::cssSelector(self::HISTORY_TABLE_DATA['line_tx_token']));
+                if (!array_key_exists(0, $txToken)) {
                     continue;
                 }
+                $txToken = array_key_exists(1, $txToken) ? $txToken[1]->getAttribute('title') : $txToken[0]->getAttribute('title');
                 $nodes = $wallet->getNodes();
                 if (!in_array($txToken, $nodes)) {
                     $this->chatter->send(new ChatMessage('💰 New node added  ('.$wallet->getName().') : '.$txToken.' at '.$txTime));
