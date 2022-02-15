@@ -26,7 +26,7 @@ class ImportWalletsCommand extends Command
             'name' => 'StonedPipes',
             'address' => '0x4a8adfc511f800df904b0536354c4038dd3bb74a',
             'autoBuy' => false,
-            'toSnipe' => false,
+            'toSnipe' => true,
         ],
     ];
 

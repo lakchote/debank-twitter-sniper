@@ -46,11 +46,11 @@ class NodesSnipingCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $driver = $this->initChromeDriver();
 
         $wallets = $this->walletRepository->findAllToSnipe();
 
         while (1) {
+            $driver = $this->initChromeDriver();
             foreach ($wallets as $wallet) {
                 $url = sprintf(self::URL, $wallet->getAddress());
                 $output->writeln('<info>Connecting to '.$url.'...</info>');
@@ -75,8 +75,8 @@ class NodesSnipingCommand extends Command
                 }
             }
             $output->writeln('<info>Done!</info>');
-
-            sleep(1800);
+            $driver->close();
+            sleep(600);
         }
 
         return 0;
