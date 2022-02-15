@@ -30,7 +30,9 @@ class NodesSnipingCommand extends Command
         'line_tx_time' => '.History_sinceTime__3JN2E',
         'line_tx_input' => '.History_ellipsis__rfBNq',
         'line_tx_token' => '.History_tokenChangeItem__3NN7B',
-        'line_tx_nft' => '.History_success__3dFwK',
+        'line_tx_approval' => '.History_interAddressExplain__2VXp7',
+        'line_tx_url' => '.History_txStatus__2PzNQ a',
+        'line_tx_network' => '.History_rowChain__eo4NT',
     ];
 
     private ChatterInterface $chatter;
@@ -46,25 +48,38 @@ class NodesSnipingCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-
         $wallets = $this->walletRepository->findAllToSnipe();
 
+        $cntNoTransactions = 0;
+        $capabilities = DesiredCapabilities::chrome();
+        $chromeOptions = new ChromeOptions();
+        $chromeOptions->addArguments(['--headless']);
+        $capabilities->setCapability(ChromeOptions::CAPABILITY_W3C, $chromeOptions);
+        $driver = RemoteWebDriver::create(self::HOST, $capabilities);
+
         while (1) {
-            $driver = $this->initChromeDriver();
             foreach ($wallets as $wallet) {
                 $url = sprintf(self::URL, $wallet->getAddress());
                 $output->writeln('<info>Connecting to '.$url.'...</info>');
                 $driver->get($url);
 
                 $output->writeln('<info>Waiting for page to load...</info>');
-                sleep(8);
+                sleep(10);
 
                 $lines = $driver->findElements(WebDriverBy::cssSelector(self::HISTORY_TABLE_DATA['line']));
                 if (count($lines) === 0) {
                     $output->writeln('<error>No transactions found.</error>');
-                    $this->chatter->send(new ChatMessage('⚠️ No transactions found for : '.$wallet->getAddress().'( '.$wallet->getName().' )'));
+                    $this->chatter->send(new ChatMessage('⚠️ No transactions found for '.$wallet->getName()));
 
-                    return 1;
+                    ++$cntNoTransactions;
+                    $this->chatter->send(new ChatMessage('⚠️ No transactions found for 3 times in a row. Exiting...'));
+                    sleep(300);
+                    if ($cntNoTransactions === 3) {
+                        $this->chatter->send(new ChatMessage('⚠️ No transactions found for 3 times in a row. Exiting...'));
+                        $driver->close();
+                        return 1;
+                    }
+                    break;
                 }
                 $output->writeln('<info>Extracting data...</info>');
                 try {
@@ -75,7 +90,6 @@ class NodesSnipingCommand extends Command
                 }
             }
             $output->writeln('<info>Done!</info>');
-            $driver->close();
             sleep(600);
         }
 
@@ -98,6 +112,12 @@ class NodesSnipingCommand extends Command
         foreach ($lines as $line) {
             // Get the time of the last transaction and see if we have it already
             $txTime = $line->findElement(WebDriverBy::cssSelector(self::HISTORY_TABLE_DATA['line_tx_time']))->getText();
+            // Get the tx URL
+            $txUrl = $line->findElement(WebDriverBy::cssSelector(self::HISTORY_TABLE_DATA['line_tx_url']))->getAttribute('href');
+            // Get the tx network
+            $txNetwork = strtoupper(
+                $line->findElement(WebDriverBy::cssSelector(self::HISTORY_TABLE_DATA['line_tx_network']))->getAttribute('alt')
+            );
 
             // Get subject of the transaction if there is one
             try {
@@ -113,46 +133,84 @@ class NodesSnipingCommand extends Command
                 continue;
             }
 
-            // Handle nodes or nfts with different processing
-            if ($hasNft && !$hasNode) {
-                $nfts = $wallet->getNfts();
-                try {
-                    $txToken = $line->findElement(WebDriverBy::cssSelector(self::HISTORY_TABLE_DATA['line_tx_nft']))->getAttribute('title');
-                } catch (\Exception $e) {
-                    continue;
-                }
-                $regex = '/(\w+).*(\d+)/';
-                $matches = [];
-                preg_match($regex, $txToken, $matches);
-                if (!array_key_exists(1, $matches)) {
-                    var_dump('WRONG REGEX');
-                    var_dump($txToken);
-                    var_dump($matches);
-                    continue;
-                }
-                if (!in_array($matches[1], $nfts)) {
-                    $this->chatter->send(new ChatMessage('🖼️ New NFT minted  ('.$wallet->getName().') : '.$txToken.' at '.$txTime));
-                    $wallet->addNft($matches[1]);
-                    $this->walletRepository->persist($wallet);
-                }
-            }
-
-            if ($hasNode && !$hasNft) {
-                $txToken = $line->findElements(WebDriverBy::cssSelector(self::HISTORY_TABLE_DATA['line_tx_token']));
-                if (!array_key_exists(0, $txToken)) {
-                    continue;
-                }
-                $txToken = array_key_exists(1, $txToken) ? $txToken[1]->getAttribute('title') : $txToken[0]->getAttribute('title');
-                $nodes = $wallet->getNodes();
-                if (!in_array($txToken, $nodes)) {
-                    $this->chatter->send(new ChatMessage('💰 New node added  ('.$wallet->getName().') : '.$txToken.' at '.$txTime));
-                    $wallet->addNode($txToken);
-                    $this->walletRepository->persist($wallet);
-                }
-            }
+            $this->handleMultipleTxs($wallet, $line, $txNetwork, ($hasNft));
         }
 
         $this->walletRepository->flush();
+    }
+
+    private function handleMultipleTxs(Wallet $wallet, RemoteWebElement $line, string $txNetwork, bool $isNft): void
+    {
+        $nfts = $wallet->getNfts();
+        $nodes = $wallet->getNodes();
+
+        $txToken = $line->findElements(WebDriverBy::cssSelector(self::HISTORY_TABLE_DATA['line_tx_token']));
+        if (count($txToken) === 1 && !$isNft) {
+            $title = $txToken[0]->getAttribute('title');
+            if (!in_array($title, $nodes)) {
+                $wallet->addNode($title);
+                $this->walletRepository->persist($wallet);
+                $this->chatter->send(
+                    new ChatMessage(
+                        '💰'.' ['.$txNetwork.'] New node transaction found for'.' ('.$wallet->getName().') :'
+                        ."\n\n"
+                        .'⬇️ : '
+                        .PHP_EOL
+                        .$txToken[0]->getDomProperty('textContent')
+                    )
+                );
+            }
+
+            return;
+        }
+
+        $outText = null;
+        $inText = [];
+        $isNew = false;
+        foreach ($txToken as $k => $tx) {
+            if ($k === 0) {
+                $outText = $tx->getDomProperty('textContent');
+            } else {
+                $title = $tx->getAttribute('title');
+                if ($isNft && !in_array($title, $nfts)) {
+                    $isNew = true;
+                    $wallet->addNft($title);
+                    $this->walletRepository->persist($wallet);
+                } elseif (!$isNft && !in_array($title, $nodes)) {
+                    $isNew = true;
+                    $wallet->addNode($title);
+                    $this->walletRepository->persist($wallet);
+                }
+                $inText[] = $tx->getDomProperty('textContent');
+            }
+        }
+
+        $nftMessage = new ChatMessage(
+            '🖼️'.' ['.$txNetwork.'] New NFT transaction found for'.' ('.$wallet->getName().') :'
+            ."\n\n"
+            .'⬇️ : '
+            .PHP_EOL
+            .$outText
+            .PHP_EOL
+            .'⬆️ : '
+            .PHP_EOL
+            .implode("\n", $inText)
+        );
+        $nodeMessage = new ChatMessage(
+            '💰'.' ['.$txNetwork.'] New node transaction found for'.' ('.$wallet->getName().') :'
+            ."\n\n"
+            .'⬇️ : '
+            .PHP_EOL
+            .$outText
+            .PHP_EOL
+            .'⬆️ : '
+            .PHP_EOL
+            .implode("\n", $inText)
+        );
+
+        if ($isNew) {
+            $this->chatter->send($isNft ? $nftMessage : $nodeMessage);
+        }
     }
 
     private function initChromeDriver(): RemoteWebDriver
