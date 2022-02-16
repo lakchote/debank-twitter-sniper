@@ -209,14 +209,13 @@ class NodesSnipingCommand extends Command
             if (!in_array($title, $nodes)) {
                 $wallet->addNode($title);
                 $this->walletRepository->persist($wallet);
-
+                $this->sendSingleTxChatMessage(
+                    $txToken[0]->getDomProperty('textContent'),
+                    $txType,
+                    $txNetwork,
+                    $walletName
+                );
             }
-            $this->sendSingleTxChatMessage(
-                $txToken[0]->getDomProperty('textContent'),
-                $txType,
-                $txNetwork,
-                $walletName
-            );
 
             return;
         }
@@ -236,10 +235,6 @@ class NodesSnipingCommand extends Command
                     $isNew = true;
                     $wallet->addNode($title);
                     $this->walletRepository->persist($wallet);
-                } else {
-                    $this->sendMultipleTxChatMessage($outText, implode("\n", $inText), $txType, $txNetwork, $walletName); // swap
-
-                    return;
                 }
             }
         }
