@@ -63,6 +63,7 @@ class NodesSnipingCommand extends Command
         while (1) {
             // Init Chrome driver
             $driver = $this->getDriver();
+            $startTime = microtime(true);
             foreach ($wallets as $wallet) {
                 $url = sprintf(self::URL, $wallet->getAddress());
                 $output->writeln(
@@ -71,7 +72,7 @@ class NodesSnipingCommand extends Command
                 $driver->get($url);
 
                 $output->writeln(
-                    sprintf('<info>[%s] 💤 Waiting for page to load by sleeping %s...</info>', $this->getDateTime(), self::SLEEP_LOAD_DEBANK)
+                    sprintf('<info>[%s] 💤 Waiting for page to load by sleeping %s secs...</info>', $this->getDateTime(), self::SLEEP_LOAD_DEBANK)
                 );
                 sleep(self::SLEEP_LOAD_DEBANK);
 
@@ -127,7 +128,9 @@ class NodesSnipingCommand extends Command
                     return 1;
                 }
             }
-            $output->writeln('<info>Done!</info>');
+            $output->writeln(
+                sprintf('<info>[%s] Done in %s</info>', $this->getDateTime(), sprintf('%0.2f', (microtime(true) - $startTime)))
+            );
             $driver->quit();
             sleep(self::SLEEP_SNIPE_RETRY);
         }
