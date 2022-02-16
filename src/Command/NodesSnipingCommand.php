@@ -24,6 +24,7 @@ class NodesSnipingCommand extends Command
     private const URL = 'https://debank.com/profile/%s/history';
     private const HOST = 'http://localhost:1337';
     private const MAX_RETRIES = 3;
+    private const SLEEP_LOAD_DEBANK = 10;
     private const SLEEP_ERROR_RETRY = 300;
     private const SLEEP_SNIPE_RETRY = 600;
 
@@ -64,36 +65,66 @@ class NodesSnipingCommand extends Command
             $driver = $this->getDriver();
             foreach ($wallets as $wallet) {
                 $url = sprintf(self::URL, $wallet->getAddress());
-                $output->writeln('<info>Connecting to '.$url.'...</info>');
+                $output->writeln(
+                    sprintf('<info>[%s] Connecting to %s wallet...</info>', $this->getDateTime(), $wallet->getName())
+                );
                 $driver->get($url);
 
-                $output->writeln('<info>Waiting for page to load...</info>');
-                sleep(10);
+                $output->writeln(
+                    sprintf('<info>[%s] 💤 Waiting for page to load by sleeping %s...</info>', $this->getDateTime(), self::SLEEP_LOAD_DEBANK)
+                );
+                sleep(self::SLEEP_LOAD_DEBANK);
 
                 $lines = $driver->findElements(WebDriverBy::cssSelector(self::HISTORY_TABLE_DATA['line']));
                 if (count($lines) === 0) {
-                    $output->writeln('<error>No transactions found.</error>');
-                    $this->chatter->send(new ChatMessage('⚠️ No transactions found for '.$wallet->getName()));
+                    $output->writeln(
+                        sprintf('<error>[%s] No transactions found.</error>', $this->getDateTime())
+                    );
+                    $this->chatter->send(
+                        new ChatMessage(
+                            sprintf('[%s] ⚠️ No transactions found for %s', $this->getDateTime(), $wallet->getName())
+                        )
+                    );
 
                     ++$cntNoTransactions;
                     $this->chatter->send(new ChatMessage(
-                        sprintf('💤 Sleeping for %s seconds, attempts : %d/%d ...',
-                            self::SLEEP_ERROR_RETRY, $cntNoTransactions, self::MAX_RETRIES)
+                        sprintf('[%s] 💤 Sleeping for %s seconds, attempts : %d/%d ...',
+                            $this->getDateTime(), self::SLEEP_ERROR_RETRY, $cntNoTransactions, self::MAX_RETRIES)
                     ));
                     sleep(self::SLEEP_ERROR_RETRY);
-                    if ($cntNoTransactions === 3) {
-                        $this->chatter->send(new ChatMessage('⚠️ No transactions found for 3 times in a row. Exiting...'));
+
+                    // Max retries reached
+                    if ($cntNoTransactions === self::MAX_RETRIES) {
+                        $output->writeln(
+                            sprintf('<error>[%s] No transactions found for 3 times in a row. Exiting...</error>', $this->getDateTime())
+                        );
+                        $this->chatter->send(
+                            new ChatMessage(
+                                sprintf('<error>[%s] No transactions found for 3 times in a row. Exiting...</error>', $this->getDateTime())
+                            )
+                        );
                         $driver->quit();
+
                         return 1;
                     }
+
+                    // Retry
                     break;
                 }
                 $output->writeln('<info>Extracting data...</info>');
                 try {
                     $this->extractData($wallet, $output, $lines);
                 } catch (\Exception $e) {
-                    $this->chatter->send(new ChatMessage('❌ Error occured : '.$e->getMessage()));
-                    break;
+                    $output->writeln(
+                        sprintf('[%s] ❌ Error occured : %s'.$e->getMessage())
+                    );
+                    $this->chatter->send(
+                        new ChatMessage(
+                            sprintf('[%s] ❌ Error occured : %s'.$e->getMessage())
+                        )
+                    );
+
+                    return 1;
                 }
             }
             $output->writeln('<info>Done!</info>');
@@ -114,6 +145,11 @@ class NodesSnipingCommand extends Command
             default:
                 return 'other';
         }
+    }
+
+    private function getDateTime(): string
+    {
+        return (new \DateTime())->format('Y-m-d H:i:s');
     }
 
     private function getDriver(): RemoteWebDriver
