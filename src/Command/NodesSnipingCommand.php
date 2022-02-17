@@ -79,30 +79,28 @@ class NodesSnipingCommand extends Command
                 $lines = $driver->findElements(WebDriverBy::cssSelector(self::HISTORY_TABLE_DATA['line']));
                 if (count($lines) === 0) {
                     $output->writeln(
-                        sprintf('<error>[%s] No transactions found.</error>', $this->getDateTime())
+                        sprintf('<info>[%s] No transactions found.</info>', $this->getDateTime())
                     );
                     $this->chatter->send(
                         new ChatMessage(
-                            sprintf('[%s] ⚠️ No transactions found for %s', $this->getDateTime(), $wallet->getName())
+                            sprintf('⚠️ No transactions found for %s', $wallet->getName())
                         )
                     );
 
                     ++$cntNoTransactions;
                     $this->chatter->send(new ChatMessage(
-                        sprintf('[%s] 💤 Sleeping for %s seconds, attempts : %d/%d ...',
-                            $this->getDateTime(), self::SLEEP_ERROR_RETRY, $cntNoTransactions, self::MAX_RETRIES)
+                        sprintf('💤 Sleeping for %s seconds, attempts : %d/%d ...',
+                            self::SLEEP_ERROR_RETRY, $cntNoTransactions, self::MAX_RETRIES)
                     ));
                     sleep(self::SLEEP_ERROR_RETRY);
 
                     // Max retries reached
                     if ($cntNoTransactions === self::MAX_RETRIES) {
                         $output->writeln(
-                            sprintf('<error>[%s] No transactions found for 3 times in a row. Exiting...</error>', $this->getDateTime())
+                            sprintf('<info>[%s] No transactions found for 3 times in a row. Exiting...</info>', $this->getDateTime())
                         );
                         $this->chatter->send(
-                            new ChatMessage(
-                                sprintf('<error>[%s] No transactions found for 3 times in a row. Exiting...</error>', $this->getDateTime())
-                            )
+                            new ChatMessage('❌ No transactions found for 3 times in a row. Exiting...')
                         );
                         $driver->quit();
 
@@ -117,11 +115,11 @@ class NodesSnipingCommand extends Command
                     $this->extractData($wallet, $output, $lines);
                 } catch (\Exception $e) {
                     $output->writeln(
-                        sprintf('[%s] ❌ Error occured : %s'.$e->getMessage())
+                        sprintf('[%s] ❌ An error occured : %s', $this->getDateTime(), $e->getMessage())
                     );
                     $this->chatter->send(
                         new ChatMessage(
-                            sprintf('[%s] ❌ Error occured : %s'.$e->getMessage())
+                            sprintf('❌ An error occured : %s', $e->getMessage())
                         )
                     );
 

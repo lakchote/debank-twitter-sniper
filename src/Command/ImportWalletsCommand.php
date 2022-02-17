@@ -38,9 +38,6 @@ class ImportWalletsCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        exec('bin/console d:d:d --force');
-        exec('bin/console d:d:c');
-        exec('bin/console d:m:m --no-interaction');
         $output->writeln('<info>Importing wallets...</info>');
 
         foreach (self::WALLETS as $wallet) {

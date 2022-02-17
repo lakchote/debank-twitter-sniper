@@ -19,3 +19,12 @@ services:
             - '../src/DependencyInjection/'
             - '../src/Entity/'
             - '../src/Kernel.php'
+
+    App\Command\TheOracleCommand:
+        arguments:
+            $bearerToken: '%env(TWITTER_BEARER_TOKEN)%'
+
+    App\Command\ImportTwitterInfluencersCommand:
+        arguments:
+            $bearerToken: '%env(TWITTER_BEARER_TOKEN)%'
+
