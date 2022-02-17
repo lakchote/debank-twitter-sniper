@@ -23,10 +23,7 @@ class NodesSnipingCommand extends Command
 
     private const URL = 'https://debank.com/profile/%s/history';
     private const HOST = 'http://localhost:1337';
-    private const MAX_RETRIES = 3;
     private const SLEEP_LOAD_DEBANK = 10;
-    private const SLEEP_ERROR_RETRY = 300;
-    private const SLEEP_SNIPE_RETRY = 600;
 
     private const HISTORY_TABLE_DATA = [
         'main'             => '.History_table__9zhFG',
@@ -57,81 +54,57 @@ class NodesSnipingCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $wallets = $this->walletRepository->findAllToSnipe();
+        $driver = $this->getDriver();
+        $startTime = microtime(true);
 
-        $cntNoTransactions = 0;
-
-        while (1) {
-            // Init Chrome driver
-            $driver = $this->getDriver();
-            $startTime = microtime(true);
-            foreach ($wallets as $wallet) {
-                $url = sprintf(self::URL, $wallet->getAddress());
-                $output->writeln(
-                    sprintf('<info>[%s] Connecting to %s wallet...</info>', $this->getDateTime(), $wallet->getName())
-                );
-                $driver->get($url);
-
-                $output->writeln(
-                    sprintf('<info>[%s] 💤 Waiting for page to load by sleeping %s secs...</info>', $this->getDateTime(), self::SLEEP_LOAD_DEBANK)
-                );
-                sleep(self::SLEEP_LOAD_DEBANK);
-
-                $lines = $driver->findElements(WebDriverBy::cssSelector(self::HISTORY_TABLE_DATA['line']));
-                if (count($lines) === 0) {
-                    $output->writeln(
-                        sprintf('<info>[%s] No transactions found.</info>', $this->getDateTime())
-                    );
-                    $this->chatter->send(
-                        new ChatMessage(
-                            sprintf('⚠️ No transactions found for %s', $wallet->getName())
-                        )
-                    );
-
-                    ++$cntNoTransactions;
-                    $this->chatter->send(new ChatMessage(
-                        sprintf('💤 Sleeping for %s seconds, attempts : %d/%d ...',
-                            self::SLEEP_ERROR_RETRY, $cntNoTransactions, self::MAX_RETRIES)
-                    ));
-                    sleep(self::SLEEP_ERROR_RETRY);
-
-                    // Max retries reached
-                    if ($cntNoTransactions === self::MAX_RETRIES) {
-                        $output->writeln(
-                            sprintf('<info>[%s] No transactions found for 3 times in a row. Exiting...</info>', $this->getDateTime())
-                        );
-                        $this->chatter->send(
-                            new ChatMessage('❌ No transactions found for 3 times in a row. Exiting...')
-                        );
-                        $driver->quit();
-
-                        return 1;
-                    }
-
-                    // Retry
-                    break;
-                }
-                $output->writeln('<info>Extracting data...</info>');
-                try {
-                    $this->extractData($wallet, $output, $lines);
-                } catch (\Exception $e) {
-                    $output->writeln(
-                        sprintf('[%s] ❌ An error occured : %s', $this->getDateTime(), $e->getMessage())
-                    );
-                    $this->chatter->send(
-                        new ChatMessage(
-                            sprintf('❌ An error occured : %s', $e->getMessage())
-                        )
-                    );
-
-                    return 1;
-                }
-            }
+        foreach ($wallets as $wallet) {
+            $url = sprintf(self::URL, $wallet->getAddress());
             $output->writeln(
-                sprintf('<info>[%s] Done in %s secs</info>', $this->getDateTime(), sprintf('%0.2f', (microtime(true) - $startTime)))
+                sprintf('<info>[%s] Connecting to %s wallet...</info>', $this->getDateTime(), $wallet->getName())
             );
-            $driver->quit();
-            sleep(self::SLEEP_SNIPE_RETRY);
+            $driver->get($url);
+
+            $output->writeln(
+                sprintf('<info>[%s] 💤 Waiting for page to load by sleeping %s secs...</info>', $this->getDateTime(), self::SLEEP_LOAD_DEBANK)
+            );
+            sleep(self::SLEEP_LOAD_DEBANK);
+
+            $lines = $driver->findElements(WebDriverBy::cssSelector(self::HISTORY_TABLE_DATA['line']));
+            if (count($lines) === 0) {
+                $output->writeln(
+                    sprintf('<info>[%s] No transactions found.</info>', $this->getDateTime())
+                );
+
+                $this->chatter->send(
+                    new ChatMessage(
+                        sprintf('⚠️ No transactions found for %s', $wallet->getName())
+                    )
+                );
+            }
+
+            $output->writeln('<info>Extracting data...</info>');
+            try {
+                $this->extractData($wallet, $output, $lines);
+            } catch (\Exception $e) {
+                $output->writeln(
+                    sprintf('[%s] ❌ An error occured : %s', $this->getDateTime(), $e->getMessage())
+                );
+
+                $this->chatter->send(
+                    new ChatMessage(
+                        sprintf('❌ An error occured : %s', $e->getMessage())
+                    )
+                );
+
+                return 1;
+            }
         }
+
+        $output->writeln(
+            sprintf('<info>[%s] Done in %s secs</info>', $this->getDateTime(), sprintf('%0.2f', (microtime(true) - $startTime)))
+        );
+
+        $driver->quit();
 
         return 0;
     }
@@ -160,7 +133,7 @@ class NodesSnipingCommand extends Command
         $chromeOptions->addArguments(['--headless']);
         $capabilities->setCapability(ChromeOptions::CAPABILITY_W3C, $chromeOptions);
 
-        return  RemoteWebDriver::create(self::HOST, $capabilities);
+        return RemoteWebDriver::create(self::HOST, $capabilities);
     }
 
     private function extractData(Wallet $wallet, OutputInterface $output, array $lines): void
@@ -246,8 +219,14 @@ class NodesSnipingCommand extends Command
     {
         $this->chatter->send(
             new ChatMessage(
-                sprintf("%s [%s] New %s transaction found for (%s) : \n\n ⬇️ : \n %s",
-                self::TX_TYPE_VISUALS_MAPPING[$txType], $txType, $txNetwork, $walletName, $outText)
+                sprintf(
+                    "%s [%s] New %s transaction found for (%s) : \n\n ⬇️ : \n %s",
+                    self::TX_TYPE_VISUALS_MAPPING[$txType],
+                    $txType,
+                    $txNetwork,
+                    $walletName,
+                    $outText
+                )
             )
         );
     }
@@ -256,8 +235,15 @@ class NodesSnipingCommand extends Command
     {
         $this->chatter->send(
             new ChatMessage(
-                sprintf("%s [%s] New %s transaction found for (%s) : \n\n ⬇️ : \n %s \n ⬆️ : %s",
-                    self::TX_TYPE_VISUALS_MAPPING[$txType], $txType, $txNetwork, $walletName, $outText, $inText)
+                sprintf(
+                    "%s [%s] New %s transaction found for (%s) : \n\n ⬇️ : \n %s \n ⬆️ : %s",
+                    self::TX_TYPE_VISUALS_MAPPING[$txType],
+                    $txType,
+                    $txNetwork,
+                    $walletName,
+                    $outText,
+                    $inText
+                )
             )
         );
     }
