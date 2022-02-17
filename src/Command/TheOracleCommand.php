@@ -104,11 +104,12 @@ class TheOracleCommand extends Command
     {
         $this->chatter->send(
             new ChatMessage(
-                sprintf("🐦 %s just followed %s\n\nUser description:\n\n %s\n\nTwitter account created the %s",
+                sprintf("🐦 %s just followed %s\n\nUser description:\n %s\n\nTwitter account created the %s\nURL: https://twitter.com/%s",
                     $twitterInfluencerUsername,
                     $usernameFollowed,
                     $usernameFollowedDescription,
-                    strstr($usernameFollowedCreatedAt, 'T', true)
+                    strstr($usernameFollowedCreatedAt, 'T', true),
+                    $usernameFollowed
                 )
             )
         );
