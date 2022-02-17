@@ -129,7 +129,7 @@ class NodesSnipingCommand extends Command
                 }
             }
             $output->writeln(
-                sprintf('<info>[%s] Done in %s</info>', $this->getDateTime(), sprintf('%0.2f', (microtime(true) - $startTime)))
+                sprintf('<info>[%s] Done in %s secs</info>', $this->getDateTime(), sprintf('%0.2f', (microtime(true) - $startTime)))
             );
             $driver->quit();
             sleep(self::SLEEP_SNIPE_RETRY);
