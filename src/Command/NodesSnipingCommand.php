@@ -38,6 +38,7 @@ class NodesSnipingCommand extends Command
     private const TX_TYPE_VISUALS_MAPPING = [
         'mint' => '🖼️',
         'node' => '💰',
+        'buy'  => '🤑',
     ];
 
     private ChatterInterface $chatter;
@@ -116,6 +117,8 @@ class NodesSnipingCommand extends Command
                 return 'mint';
             case stripos($txInput, 'node') !== false:
                 return 'node';
+            case stripos($txInput, 'buy') !== false:
+                return 'buy';
             default:
                 return 'other';
         }
@@ -171,6 +174,7 @@ class NodesSnipingCommand extends Command
     {
         $nfts = $wallet->getNfts();
         $nodes = $wallet->getNodes();
+        $buys = $wallet->getBuys();
         $walletName = $wallet->getName();
 
         $txToken = $line->findElements(WebDriverBy::cssSelector(self::HISTORY_TABLE_DATA['line_tx_token']));
@@ -205,6 +209,10 @@ class NodesSnipingCommand extends Command
                 } elseif ($txType === 'node' && !in_array($title, $nodes)) {
                     $isNew = true;
                     $wallet->addNode($title);
+                    $this->walletRepository->persist($wallet);
+                } elseif ($txType === 'buy' && ((!$buys) || !in_array($title, $buys))) {
+                    $isNew = true;
+                    $wallet->addBuy($title);
                     $this->walletRepository->persist($wallet);
                 }
             }

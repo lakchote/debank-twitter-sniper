@@ -25,6 +25,9 @@ class Wallet
     #[ORM\Column(type: 'json', nullable: true)]
     private $nodes = [];
 
+    #[ORM\Column(type: 'json', nullable: true)]
+    private $buys = [];
+
     #[ORM\Column(type: 'boolean')]
     private $toSnipe;
 
@@ -74,6 +77,16 @@ class Wallet
     public function addNode(string $node): void
     {
         $this->nodes[] = $node;
+    }
+
+    public function getBuys(): ?array
+    {
+        return $this->buys;
+    }
+
+    public function addBuy(string $buy): void
+    {
+        $this->buys[] = $buy;
     }
 
     public function isToSnipe(): ?bool
