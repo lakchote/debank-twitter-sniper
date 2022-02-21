@@ -23,7 +23,7 @@ class NodesSnipingCommand extends Command
 
     private const URL = 'https://debank.com/profile/%s/history';
     private const HOST = 'http://localhost:1337';
-    private const SLEEP_LOAD_DEBANK = 10;
+    private const SLEEP_LOAD_DEBANK = 15;
 
     private const HISTORY_TABLE_DATA = [
         'main'             => '.History_table__9zhFG',
