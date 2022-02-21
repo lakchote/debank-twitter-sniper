@@ -254,5 +254,6 @@ class NodesSnipingCommand extends Command
                 )
             )
         );
+        sleep(1);
     }
 }
