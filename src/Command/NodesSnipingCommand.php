@@ -143,8 +143,6 @@ class NodesSnipingCommand extends Command
     {
         /** @var RemoteWebElement $line */
         foreach ($lines as $line) {
-            // Get the time of the last transaction and see if we have it already
-            $txTime = $line->findElement(WebDriverBy::cssSelector(self::HISTORY_TABLE_DATA['line_tx_time']))->getText();
             // Get the tx URL
             $txUrl = $line->findElement(WebDriverBy::cssSelector(self::HISTORY_TABLE_DATA['line_tx_url']))->getAttribute('href');
             // Get the tx network
@@ -164,13 +162,13 @@ class NodesSnipingCommand extends Command
             if ($txType === 'other') {
                 continue;
             }
-            $this->handleMultipleTxs($wallet, $line, $txNetwork, $txType);
+            $this->handleMultipleTxs($wallet, $line, $txNetwork, $txUrl, $txType);
         }
 
         $this->walletRepository->flush();
     }
 
-    private function handleMultipleTxs(Wallet $wallet, RemoteWebElement $line, string $txNetwork, string $txType): void
+    private function handleMultipleTxs(Wallet $wallet, RemoteWebElement $line, string $txNetwork, string $txUrl, string $txType): void
     {
         $nfts = $wallet->getNfts();
         $nodes = $wallet->getNodes();
@@ -188,6 +186,7 @@ class NodesSnipingCommand extends Command
                     $txToken[0]->getDomProperty('textContent'),
                     $txType,
                     $txNetwork,
+                    $txUrl,
                     $walletName
                 );
             }
@@ -219,38 +218,40 @@ class NodesSnipingCommand extends Command
         }
 
         if ($isNew) {
-            $this->sendMultipleTxChatMessage($outText, implode("\n", $inText), $txType, $txNetwork, $walletName);
+            $this->sendMultipleTxChatMessage($outText, implode("\n", $inText), $txType, $txNetwork, $txUrl, $walletName);
         }
     }
 
-    private function sendSingleTxChatMessage(string $outText, string $txType, string $txNetwork, string $walletName): void
+    private function sendSingleTxChatMessage(string $outText, string $txType, string $txNetwork, string $txUrl, string $walletName): void
     {
         $this->chatter->send(
             new ChatMessage(
                 sprintf(
-                    "%s [%s] New %s transaction found for (%s) : \n\n ⬇️ : \n %s",
-                    self::TX_TYPE_VISUALS_MAPPING[$txType],
-                    $txType,
-                    $txNetwork,
-                    $walletName,
-                    $outText
-                )
-            )
-        );
-    }
-
-    private function sendMultipleTxChatMessage(string $outText, string $inText, string $txType, string $txNetwork, string $walletName): void
-    {
-        $this->chatter->send(
-            new ChatMessage(
-                sprintf(
-                    "%s [%s] New %s transaction found for (%s) : \n\n ⬇️ : \n %s \n ⬆️ : %s",
+                    "%s [%s] New %s transaction found for (%s) : \n\n ⬇️ : \n %s \n URL : %s",
                     self::TX_TYPE_VISUALS_MAPPING[$txType],
                     $txType,
                     $txNetwork,
                     $walletName,
                     $outText,
-                    $inText
+                    $txUrl
+                )
+            )
+        );
+    }
+
+    private function sendMultipleTxChatMessage(string $outText, string $inText, string $txType, string $txNetwork, string $txUrl, string $walletName): void
+    {
+        $this->chatter->send(
+            new ChatMessage(
+                sprintf(
+                    "%s [%s] New %s transaction found for (%s) : \n\n ⬇️ : \n %s \n ⬆️ : %s \n URL : %s",
+                    self::TX_TYPE_VISUALS_MAPPING[$txType],
+                    $txType,
+                    $txNetwork,
+                    $walletName,
+                    $outText,
+                    $inText,
+                    $txUrl
                 )
             )
         );
