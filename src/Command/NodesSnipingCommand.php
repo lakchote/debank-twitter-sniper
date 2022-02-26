@@ -97,6 +97,8 @@ class NodesSnipingCommand extends Command
                     )
                 );
 
+                $driver->quit();
+                
                 return 1;
             }
         }
