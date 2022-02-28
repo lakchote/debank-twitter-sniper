@@ -98,7 +98,7 @@ class NodesSnipingCommand extends Command
                 );
 
                 $driver->quit();
-                
+
                 return 1;
             }
         }
@@ -138,7 +138,7 @@ class NodesSnipingCommand extends Command
         $chromeOptions->addArguments(['--headless']);
         $capabilities->setCapability(ChromeOptions::CAPABILITY_W3C, $chromeOptions);
 
-        return RemoteWebDriver::create(self::HOST, $capabilities);
+        return RemoteWebDriver::create(self::HOST, $capabilities, 3600000,3600000);
     }
 
     private function extractData(Wallet $wallet, OutputInterface $output, array $lines): void
