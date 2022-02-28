@@ -8,6 +8,7 @@ use App\Repository\TwitterInfluencerRepository;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Notifier\Bridge\Telegram\TelegramOptions;
 use Symfony\Component\Notifier\ChatterInterface;
 use Symfony\Component\Notifier\Message\ChatMessage;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
@@ -102,6 +103,8 @@ class TheOracleCommand extends Command
         string $usernameFollowedCreatedAt
     ): void
     {
+        $options = new TelegramOptions(['chat_id' => '-771321845']);
+
         $this->chatter->send(
             new ChatMessage(
                 sprintf("🐦 %s just followed %s\n\nUser description:\n %s\n\nTwitter account created the %s\nURL: https://twitter.com/%s",
@@ -110,7 +113,7 @@ class TheOracleCommand extends Command
                     $usernameFollowedDescription,
                     strstr($usernameFollowedCreatedAt, 'T', true),
                     $usernameFollowed
-                )
+                ), $options
             )
         );
     }

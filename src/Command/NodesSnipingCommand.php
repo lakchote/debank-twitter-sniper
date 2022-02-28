@@ -55,61 +55,61 @@ class NodesSnipingCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $wallets = $this->walletRepository->findAllToSnipe();
-        $driver = $this->getDriver();
-        $startTime = microtime(true);
 
-        foreach ($wallets as $wallet) {
-            $url = sprintf(self::URL, $wallet->getAddress());
-            $output->writeln(
-                sprintf('<info>[%s] Connecting to %s wallet...</info>', $this->getDateTime(), $wallet->getName())
-            );
-            $driver->get($url);
+        try {
+            $driver = $this->getDriver();
+            $startTime = microtime(true);
 
-            $output->writeln(
-                sprintf('<info>[%s] 💤 Waiting for page to load by sleeping %s secs...</info>', $this->getDateTime(), self::SLEEP_LOAD_DEBANK)
-            );
-            sleep(self::SLEEP_LOAD_DEBANK);
-
-            $lines = $driver->findElements(WebDriverBy::cssSelector(self::HISTORY_TABLE_DATA['line']));
-            if (count($lines) === 0) {
+            foreach ($wallets as $wallet) {
+                $url = sprintf(self::URL, $wallet->getAddress());
                 $output->writeln(
-                    sprintf('<info>[%s] No transactions found.</info>', $this->getDateTime())
+                    sprintf('<info>[%s] Connecting to %s wallet...</info>', $this->getDateTime(), $wallet->getName())
                 );
+                $driver->get($url);
 
-                $this->chatter->send(
-                    new ChatMessage(
-                        sprintf('⚠️ No transactions found for %s', $wallet->getName())
-                    )
-                );
-            }
-
-            $output->writeln('<info>Extracting data...</info>');
-            try {
-                $this->extractData($wallet, $output, $lines);
-            } catch (\Exception $e) {
                 $output->writeln(
-                    sprintf('[%s] ❌ An error occured : %s', $this->getDateTime(), $e->getMessage())
+                    sprintf('<info>[%s] 💤 Waiting for page to load by sleeping %s secs...</info>', $this->getDateTime(), self::SLEEP_LOAD_DEBANK)
                 );
+                sleep(self::SLEEP_LOAD_DEBANK);
 
-                $this->chatter->send(
-                    new ChatMessage(
-                        sprintf('❌ An error occured : %s', $e->getMessage())
-                    )
-                );
+                $lines = $driver->findElements(WebDriverBy::cssSelector(self::HISTORY_TABLE_DATA['line']));
+                if (count($lines) === 0) {
+                    $output->writeln(
+                        sprintf('<info>[%s] No transactions found.</info>', $this->getDateTime())
+                    );
 
-                $driver->quit();
+                    $this->chatter->send(
+                        new ChatMessage(
+                            sprintf('⚠️ No transactions found for %s', $wallet->getName())
+                        )
+                    );
+                }
 
-                return 1;
+                $output->writeln('<info>Extracting data...</info>');
+                $this->extractData($wallet, $lines);
             }
+            $output->writeln(
+                sprintf('<info>[%s] Done in %s secs</info>', $this->getDateTime(), sprintf('%0.2f', (microtime(true) - $startTime)))
+            );
+            $driver->quit();
+
+            return 0;
+
+        } catch (\Throwable $e) {
+            $output->writeln(
+            sprintf('[%s] ❌ An error occured : %s', $this->getDateTime(), $e->getMessage())
+            );
+
+            $this->chatter->send(
+            new ChatMessage(
+            sprintf('❌ An error occured : %s', $e->getMessage())
+            )
+            );
+
+            $driver->quit();
+
+            return 1;
         }
-
-        $output->writeln(
-            sprintf('<info>[%s] Done in %s secs</info>', $this->getDateTime(), sprintf('%0.2f', (microtime(true) - $startTime)))
-        );
-
-        $driver->quit();
-
-        return 0;
     }
 
     private function checkForTxType(string $txInput): string
@@ -141,7 +141,7 @@ class NodesSnipingCommand extends Command
         return RemoteWebDriver::create(self::HOST, $capabilities, 3600000,3600000);
     }
 
-    private function extractData(Wallet $wallet, OutputInterface $output, array $lines): void
+    private function extractData(Wallet $wallet, array $lines): void
     {
         /** @var RemoteWebElement $line */
         foreach ($lines as $line) {
