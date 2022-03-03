@@ -21,6 +21,7 @@ class ImportTwitterInfluencersCommand extends Command
         'Doy1eee',
         'Stonedpipez',
         'TheBreadMakerr',
+        'GakiBash',
     ];
 
     private string $bearerToken;
