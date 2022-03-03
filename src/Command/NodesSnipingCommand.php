@@ -239,6 +239,7 @@ class NodesSnipingCommand extends Command
                 )
             )
         );
+        sleep(1);
     }
 
     private function sendMultipleTxChatMessage(string $outText, string $inText, string $txType, string $txNetwork, string $txUrl, string $walletName): void

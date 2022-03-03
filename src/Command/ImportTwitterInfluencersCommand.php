@@ -20,6 +20,7 @@ class ImportTwitterInfluencersCommand extends Command
         'NodeBaron',
         'Doy1eee',
         'Stonedpipez',
+        'TheBreadMakerr',
     ];
 
     private string $bearerToken;
@@ -40,6 +41,10 @@ class ImportTwitterInfluencersCommand extends Command
         $output->writeln('<info>Importing Twitter influencers</info>');
 
         foreach (self::INFLUENCERS_USERNAME_TO_FOLLOW as $username) {
+            $isUserExists = $this->twitterInfluencerRepository->findOneBy(['username' => $username]);
+            if ($isUserExists) {
+                continue;
+            }
             $twitterInfluencer = new TwitterInfluencer();
             $twitterInfluencer->setUsername($username);
             $twitterInfluencer->setUserId($this->getUserId($username));

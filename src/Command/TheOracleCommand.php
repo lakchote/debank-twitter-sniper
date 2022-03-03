@@ -116,6 +116,7 @@ class TheOracleCommand extends Command
                 ), $options
             )
         );
+        sleep(1);
     }
 
     private function throwOnInvalidJson(array $data): void
