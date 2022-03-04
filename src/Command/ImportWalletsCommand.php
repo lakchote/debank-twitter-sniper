@@ -58,6 +58,24 @@ class ImportWalletsCommand extends Command
             'autoBuy' => false,
             'toSnipe' => true,
         ],
+        7 => [
+            'name' => 'Coffee Block',
+            'address' => '0x72b2b9d02fa390285adce0beb219900cc749c938',
+            'autoBuy' => false,
+            'toSnipe' => true,
+        ],
+        8 => [
+            'name' => 'Strong OG #1',
+            'address' => '0xc0e636564f4e3ea4d85276b250176622b139c975',
+            'autoBuy' => false,
+            'toSnipe' => true,
+        ],
+        9 => [
+            'name' => 'Strong OG #2',
+            'address' => '0x7a04ea27fd2876cd489e5c8baeb61a6e485dead8',
+            'autoBuy' => false,
+            'toSnipe' => true,
+        ],
     ];
 
     public function __construct(WalletRepository $walletRepository)
