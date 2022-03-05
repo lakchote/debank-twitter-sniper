@@ -22,6 +22,11 @@ class ImportTwitterInfluencersCommand extends Command
         'Stonedpipez',
         'TheBreadMakerr',
         'GakiBash',
+        'PreExponential',
+        'JiraiyaReal',
+        'CryptoNodesNow',
+        'Humble_Degen',
+        'CryptoDuffleBag',
     ];
 
     private string $bearerToken;
