@@ -47,7 +47,7 @@ class TheOracleCommand extends Command
             $output->writeln(sprintf('<info>[%s] Looking up %s following...</info>', $this->getDateTime(), $username));
 
             $nextToken = null;
-            $queryParams['user.fields'] = 'description,created_at';
+            $queryParams['user.fields'] = 'description,created_at,public_metrics';
             try {
                 do {
                     if ($nextToken) {
@@ -71,6 +71,7 @@ class TheOracleCommand extends Command
                                     $userFollowed['username'],
                                     $userFollowed['description'],
                                     $userFollowed['created_at'],
+                                    $userFollowed['public_metrics']['followers_count'],
                                 );
                             }
                             $this->twitterInfluencerRepository->persist($twitterInfluencer);
@@ -100,18 +101,24 @@ class TheOracleCommand extends Command
         string $twitterInfluencerUsername,
         string $usernameFollowed,
         string $usernameFollowedDescription,
-        string $usernameFollowedCreatedAt
+        string $usernameFollowedCreatedAt,
+        int $followersCount
     ): void
     {
         $options = new TelegramOptions(['chat_id' => '-771321845']);
 
+        $createdAt = new \DateTime($usernameFollowedCreatedAt);
+        $now = new \DateTime();
+        $interval = $now->diff($createdAt);
+
         $this->chatter->send(
             new ChatMessage(
-                sprintf("🐦 %s just followed %s\n\nUser description:\n %s\n\nTwitter account created the %s\nURL: https://twitter.com/%s",
+                sprintf("%s followed %s \n\n👤 %s followers\n⌛️ Created %s days ago\n\n%s\n\nhttps://twitter.com/%s",
                     $twitterInfluencerUsername,
                     $usernameFollowed,
+                    $followersCount,
+                    $interval->format('%a'),
                     $usernameFollowedDescription,
-                    strstr($usernameFollowedCreatedAt, 'T', true),
                     $usernameFollowed
                 ), $options
             )
