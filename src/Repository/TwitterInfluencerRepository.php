@@ -13,10 +13,14 @@ class TwitterInfluencerRepository extends ServiceEntityRepository
         parent::__construct($registry, TwitterInfluencer::class);
     }
 
-    public function save(TwitterInfluencer $wallet)
+    public function countFollowingsWithUsername(string $username)
     {
-        $this->_em->persist($wallet);
-        $this->_em->flush();
+        return $this->createQueryBuilder('t')
+            ->select('count(t)')
+            ->where('t.following LIKE :username')
+            ->setParameter('username', '%'.$username.'%')
+            ->getQuery()
+            ->getSingleColumnResult();
     }
 
     public function persist(TwitterInfluencer $wallet)

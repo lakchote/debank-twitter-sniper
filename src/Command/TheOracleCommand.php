@@ -65,7 +65,7 @@ class TheOracleCommand extends Command
                     foreach ($json['data'] as $userFollowed) {
                         if (!in_array($userFollowed['username'], $userFollowing)) {
                             $twitterInfluencer->addFollowing($userFollowed['username']);
-                            if (count($userFollowing) !== 0) {
+                            if (count($userFollowing) !== 0 && count($this->twitterInfluencerRepository->countFollowingsWithUsername($userFollowed['username'])) === 0) {
                                 $this->sendNewFollowingMessage(
                                     $username,
                                     $userFollowed['username'],
