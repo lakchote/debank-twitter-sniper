@@ -79,7 +79,7 @@ class TheOracleCommand extends Command
                     }
                 } while (array_key_exists('next_token', $json));
             } catch (\Exception $e) {
-                $this->chatter->send(new ChatMessage(sprintf('🐦 An error occured : %s', $e->getMessage())));
+                $this->chatter->send(new ChatMessage(sprintf('🐦 An error occured : %s', $e->getMessage()), new TelegramOptions(['chat_id' => '-771321845'])));
 
                 throw new \RuntimeException(sprintf('[%s] An error occured : %s', $this->getDateTime(), $e->getMessage()));
             }
@@ -123,7 +123,7 @@ class TheOracleCommand extends Command
                 ), $options
             )
         );
-        sleep(1);
+        sleep(2);
     }
 
     private function throwOnInvalidJson(array $data): void
