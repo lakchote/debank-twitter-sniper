@@ -27,6 +27,7 @@ class ImportTwitterInfluencersCommand extends Command
         'CryptoNodesNow',
         'Humble_Degen',
         'CryptoDuffleBag',
+        'cryptofrog202',
     ];
 
     private string $bearerToken;
