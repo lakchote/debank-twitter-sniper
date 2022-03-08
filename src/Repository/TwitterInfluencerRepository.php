@@ -13,6 +13,15 @@ class TwitterInfluencerRepository extends ServiceEntityRepository
         parent::__construct($registry, TwitterInfluencer::class);
     }
 
+    public function deleteUsersNotInArray(array $usersToKeep)
+    {
+        $qb = $this->createQueryBuilder('t');
+        $qb->delete()
+            ->where($qb->expr()->notIn('t.id', $usersToKeep))
+            ->getQuery()
+            ->execute();
+    }
+
     public function countFollowingsWithUsername(string $username)
     {
         return $this->createQueryBuilder('t')

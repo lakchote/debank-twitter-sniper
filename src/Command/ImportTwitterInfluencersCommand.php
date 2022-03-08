@@ -20,14 +20,7 @@ class ImportTwitterInfluencersCommand extends Command
         'NodeBaron',
         'Doy1eee',
         'Stonedpipez',
-        'TheBreadMakerr',
         'GakiBash',
-        'PreExponential',
-        'JiraiyaReal',
-        'CryptoNodesNow',
-        'Humble_Degen',
-        'CryptoDuffleBag',
-        'cryptofrog202',
     ];
 
     private string $bearerToken;
@@ -46,6 +39,7 @@ class ImportTwitterInfluencersCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $output->writeln('<info>Importing Twitter influencers</info>');
+        $this->twitterInfluencerRepository->deleteUsersNotInArray(self::INFLUENCERS_USERNAME_TO_FOLLOW);
 
         foreach (self::INFLUENCERS_USERNAME_TO_FOLLOW as $username) {
             $isUserExists = $this->twitterInfluencerRepository->findOneBy(['username' => $username]);
