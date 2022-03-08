@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Command;
 
+use App\Entity\Transaction;
 use App\Entity\Wallet;
+use App\Repository\TransactionRepository;
 use App\Repository\WalletRepository;
 use Facebook\WebDriver\Chrome\ChromeOptions;
 use Facebook\WebDriver\Remote\DesiredCapabilities;
@@ -36,20 +38,24 @@ class NodesSnipingCommand extends Command
         'line_tx_network'  => '.History_rowChain__eo4NT',
     ];
     private const TX_TYPE_VISUALS_MAPPING = [
-        'mint' => '🖼️',
-        'node' => '💰',
-        'buy'  => '🤑',
+        'mint'    => '🖼️',
+        'node'    => '💰',
+        'buy'     => '🤑',
+        'stake'   => '🪙',
+        'unstake' => '💸',
     ];
 
     private ChatterInterface $chatter;
     private WalletRepository $walletRepository;
+    private TransactionRepository $transactionRepository;
 
-    public function __construct(ChatterInterface $chatter, WalletRepository $walletRepository)
+    public function __construct(ChatterInterface $chatter, WalletRepository $walletRepository, TransactionRepository $transactionRepository)
     {
         parent::__construct();
 
         $this->chatter = $chatter;
         $this->walletRepository = $walletRepository;
+        $this->transactionRepository = $transactionRepository;
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -121,6 +127,10 @@ class NodesSnipingCommand extends Command
                 return 'node';
             case stripos($txInput, 'buy') !== false:
                 return 'buy';
+            case (stripos($txInput, 'unstake') !== false):
+                return 'unstake';
+            case (stripos($txInput, 'stake') !== false):
+                return 'stake';
             default:
                 return 'other';
         }
@@ -175,6 +185,8 @@ class NodesSnipingCommand extends Command
         $nfts = $wallet->getNfts();
         $nodes = $wallet->getNodes();
         $buys = $wallet->getBuys();
+        $stakes = $wallet->getStakes();
+        $unstakes = $wallet->getUnstakes();
         $walletName = $wallet->getName();
 
         $txToken = $line->findElements(WebDriverBy::cssSelector(self::HISTORY_TABLE_DATA['line_tx_token']));
@@ -183,6 +195,23 @@ class NodesSnipingCommand extends Command
             $title = $txToken[0]->getAttribute('title');
             if (!in_array($title, $nodes)) {
                 $wallet->addNode($title);
+                $this->walletRepository->persist($wallet);
+                $this->sendSingleTxChatMessage(
+                    $txToken[0]->getDomProperty('textContent'),
+                    $txType,
+                    $txNetwork,
+                    $txUrl,
+                    $walletName
+                );
+            }
+
+            return;
+        }
+        if (count($txToken) === 1 && $txType === 'stake') {
+            $title = $txToken[0]->getAttribute('title');
+            if (!in_array($title, $nodes)) {
+                $wallet->addStake($title);
+                $this->addTransaction($wallet, $txType, $title);
                 $this->walletRepository->persist($wallet);
                 $this->sendSingleTxChatMessage(
                     $txToken[0]->getDomProperty('textContent'),
@@ -206,14 +235,27 @@ class NodesSnipingCommand extends Command
                 if ($txType === 'mint' && !in_array($title, $nfts)) {
                     $isNew = true;
                     $wallet->addNft($title);
+                    $this->addTransaction($wallet, $txType, $title);
                     $this->walletRepository->persist($wallet);
                 } elseif ($txType === 'node' && !in_array($title, $nodes)) {
                     $isNew = true;
                     $wallet->addNode($title);
+                    $this->addTransaction($wallet, $txType, $title);
                     $this->walletRepository->persist($wallet);
                 } elseif ($txType === 'buy' && ((!$buys) || !in_array($title, $buys))) {
                     $isNew = true;
                     $wallet->addBuy($title);
+                    $this->addTransaction($wallet, $txType, $title);
+                    $this->walletRepository->persist($wallet);
+                } elseif ($txType === 'stake' && ((!$stakes) || !in_array($title, $stakes))) {
+                    $isNew = true;
+                    $wallet->addStake($title);
+                    $this->addTransaction($wallet, $txType, $title);
+                    $this->walletRepository->persist($wallet);
+                } elseif ($txType === 'unstake' && ((!$unstakes) || !in_array($title, $unstakes))) {
+                    $isNew = true;
+                    $wallet->addUnstake($title);
+                    $this->addTransaction($wallet, $txType, $title);
                     $this->walletRepository->persist($wallet);
                 }
             }
@@ -222,6 +264,16 @@ class NodesSnipingCommand extends Command
         if ($isNew) {
             $this->sendMultipleTxChatMessage($outText, implode("\n", $inText), $txType, $txNetwork, $txUrl, $walletName);
         }
+    }
+
+    private function addTransaction(Wallet $wallet, string $txType, string $token): void
+    {
+        $transaction = new Transaction();
+        $transaction->setType($txType);
+        $transaction->setToken($token);
+        $transaction->setDate(new \DateTime());
+        $wallet->addTransaction($transaction);
+        $this->transactionRepository->persist($transaction);
     }
 
     private function sendSingleTxChatMessage(string $outText, string $txType, string $txNetwork, string $txUrl, string $walletName): void
