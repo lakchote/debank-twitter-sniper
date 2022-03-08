@@ -193,6 +193,7 @@ class NodesSnipingCommand extends Command
 
         if (count($txToken) === 1 && $txType === 'node') {
             $title = $txToken[0]->getAttribute('title');
+            $this->addTransaction($wallet, $txType, $txUrl, $title);
             if (!in_array($title, $nodes)) {
                 $wallet->addNode($title);
                 $this->walletRepository->persist($wallet);
@@ -209,9 +210,9 @@ class NodesSnipingCommand extends Command
         }
         if (count($txToken) === 1 && $txType === 'stake') {
             $title = $txToken[0]->getAttribute('title');
-            if (!in_array($title, $nodes)) {
+            $this->addTransaction($wallet, $txType, $txUrl, $title);
+            if (!in_array($title, $stakes)) {
                 $wallet->addStake($title);
-                $this->addTransaction($wallet, $txType, $title);
                 $this->walletRepository->persist($wallet);
                 $this->sendSingleTxChatMessage(
                     $txToken[0]->getDomProperty('textContent'),
@@ -232,30 +233,45 @@ class NodesSnipingCommand extends Command
             } else {
                 $title = $tx->getAttribute('title');
                 $inText[] = $tx->getDomProperty('textContent');
-                if ($txType === 'mint' && !in_array($title, $nfts)) {
-                    $isNew = true;
+                if ($txType === 'mint') {
+                    if (!in_array($title, $nfts)) {
+                        $isNew = true;
+                    }
+
                     $wallet->addNft($title);
-                    $this->addTransaction($wallet, $txType, $title);
+                    $this->addTransaction($wallet, $txType, $txUrl, $title);
                     $this->walletRepository->persist($wallet);
-                } elseif ($txType === 'node' && !in_array($title, $nodes)) {
-                    $isNew = true;
+                } elseif ($txType === 'node') {
+                    if (!in_array($title, $nodes)) {
+                        $isNew = true;
+                    }
+
                     $wallet->addNode($title);
-                    $this->addTransaction($wallet, $txType, $title);
+                    $this->addTransaction($wallet, $txType, $txUrl, $title);
                     $this->walletRepository->persist($wallet);
-                } elseif ($txType === 'buy' && ((!$buys) || !in_array($title, $buys))) {
-                    $isNew = true;
+                } elseif ($txType === 'buy') {
+                    if ((!$buys) || !in_array($title, $buys)) {
+                        $isNew = true;
+                    }
+
                     $wallet->addBuy($title);
-                    $this->addTransaction($wallet, $txType, $title);
+                    $this->addTransaction($wallet, $txType, $txUrl, $title);
                     $this->walletRepository->persist($wallet);
-                } elseif ($txType === 'stake' && ((!$stakes) || !in_array($title, $stakes))) {
-                    $isNew = true;
+                } elseif ($txType === 'stake') {
+                    if ((!$stakes) || !in_array($title, $stakes)) {
+                        $isNew = true;
+                    }
+
                     $wallet->addStake($title);
-                    $this->addTransaction($wallet, $txType, $title);
+                    $this->addTransaction($wallet, $txType, $txUrl, $title);
                     $this->walletRepository->persist($wallet);
-                } elseif ($txType === 'unstake' && ((!$unstakes) || !in_array($title, $unstakes))) {
-                    $isNew = true;
+                } elseif ($txType === 'unstake') {
+                    if ((!$unstakes) || !in_array($title, $unstakes)) {
+                        $isNew = true;
+                    }
+
                     $wallet->addUnstake($title);
-                    $this->addTransaction($wallet, $txType, $title);
+                    $this->addTransaction($wallet, $txType, $txUrl, $title);
                     $this->walletRepository->persist($wallet);
                 }
             }
@@ -266,11 +282,17 @@ class NodesSnipingCommand extends Command
         }
     }
 
-    private function addTransaction(Wallet $wallet, string $txType, string $token): void
+    private function addTransaction(Wallet $wallet, string $txType, string $txUrl, string $token): void
     {
+        $isTxExist = $this->transactionRepository->findOneBy(['txUrl' => $txUrl]);
+        if ($isTxExist) {
+            return;
+        }
+
         $transaction = new Transaction();
         $transaction->setType($txType);
         $transaction->setToken($token);
+        $transaction->setTxUrl($txUrl);
         $transaction->setDate(new \DateTime());
         $wallet->addTransaction($transaction);
         $this->transactionRepository->persist($transaction);

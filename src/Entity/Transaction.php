@@ -26,6 +26,9 @@ class Transaction
     #[ORM\ManyToOne(targetEntity: Wallet::class, inversedBy: 'transactions')]
     private $wallet;
 
+    #[ORM\Column(type: 'string', length: 255)]
+    private $txUrl;
+
     public function getId(): ?int
     {
         return $this->id;
@@ -69,5 +72,15 @@ class Transaction
     public function setWallet(?Wallet $wallet)
     {
         $this->wallet = $wallet;
+    }
+
+    public function getTxUrl(): string
+    {
+        return $this->txUrl;
+    }
+
+    public function setTxUrl(string $txUrl)
+    {
+        $this->txUrl = $txUrl;
     }
 }
