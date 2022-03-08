@@ -17,7 +17,7 @@ class TwitterInfluencerRepository extends ServiceEntityRepository
     {
         $qb = $this->createQueryBuilder('t');
         $qb->delete()
-            ->where($qb->expr()->notIn('t.id', $usersToKeep))
+            ->where($qb->expr()->notIn('t.username', $usersToKeep))
             ->getQuery()
             ->execute();
     }
