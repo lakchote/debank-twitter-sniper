@@ -103,12 +103,12 @@ class NodesSnipingCommand extends Command
 
         } catch (\Throwable $e) {
             $output->writeln(
-            sprintf('[%s] ❌ An error occured : %s', $this->getDateTime(), $e->getMessage())
+                sprintf('❌ An error occured : %s, line : %s', $e->getMessage(), $e->getLine())
             );
 
             $this->chatter->send(
             new ChatMessage(
-            sprintf('❌ An error occured : %s', $e->getMessage())
+            sprintf('❌ An error occured : %s, line : %s', $e->getMessage(), $e->getLine())
             )
             );
 
@@ -211,7 +211,7 @@ class NodesSnipingCommand extends Command
         if (count($txToken) === 1 && $txType === 'stake') {
             $title = $txToken[0]->getAttribute('title');
             $this->addTransaction($wallet, $txType, $txUrl, $title);
-            if (!in_array($title, $stakes)) {
+            if ((!$stakes) || !in_array($title, $stakes)) {
                 $wallet->addStake($title);
                 $this->walletRepository->persist($wallet);
                 $this->sendSingleTxChatMessage(
