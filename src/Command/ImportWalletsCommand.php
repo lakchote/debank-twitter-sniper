@@ -94,6 +94,24 @@ class ImportWalletsCommand extends Command
             'autoBuy' => false,
             'toSnipe' => true,
         ],
+        13 => [
+            'name' => 'hgtpmichael',
+            'address' => '0xfd7ed2d0ace5b907e5e90c085d862f5229007cb2',
+            'autoBuy' => false,
+            'toSnipe' => true,
+        ],
+        14 => [
+            'name' => 'hgtpmichael',
+            'address' => '0xfd7ed2d0ace5b907e5e90c085d862f5229007cb2',
+            'autoBuy' => false,
+            'toSnipe' => true,
+        ],
+        15 => [
+            'name' => 'el sk',
+            'address' => '0x134489b826a3a899b8bbe7243f77292f95aa65fa',
+            'autoBuy' => false,
+            'toSnipe' => true,
+        ],
     ];
 
     public function __construct(WalletRepository $walletRepository)
