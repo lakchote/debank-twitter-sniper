@@ -18,9 +18,7 @@ class ImportTwitterInfluencersCommand extends Command
     private const TWITTER_API_USERID_BY_USERNAME = 'https://api.twitter.com/2/users/by/username/%s';
     private const INFLUENCERS_USERNAME_TO_FOLLOW = [
         'NodeBaron',
-        'Doy1eee',
         'Stonedpipez',
-        'GakiBash',
     ];
 
     private string $bearerToken;
