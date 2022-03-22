@@ -19,6 +19,8 @@ class ImportTwitterInfluencersCommand extends Command
     private const INFLUENCERS_USERNAME_TO_FOLLOW = [
         'NodeBaron',
         'Stonedpipez',
+        'ThomasGCrypto',
+        '0xArjay',
     ];
 
     private string $bearerToken;
