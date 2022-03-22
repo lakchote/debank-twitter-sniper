@@ -36,6 +36,9 @@ class Wallet
     #[ORM\Column(type: 'json', nullable: true)]
     private $unstakes = [];
 
+    #[ORM\Column(type: 'json', nullable: true)]
+    private $swaps = [];
+
     #[ORM\Column(type: 'boolean')]
     private $toSnipe;
 
@@ -123,6 +126,16 @@ class Wallet
     public function addUnstake(string $unstake): void
     {
         $this->unstakes[] = $unstake;
+    }
+
+    public function getSwaps(): ?array
+    {
+        return $this->swaps;
+    }
+
+    public function addSwap(string $swap): void
+    {
+        $this->swaps[] = $swap;
     }
 
     public function isToSnipe(): ?bool

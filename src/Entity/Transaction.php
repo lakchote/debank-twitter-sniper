@@ -29,6 +29,9 @@ class Transaction
     #[ORM\Column(type: 'string', length: 255)]
     private $txUrl;
 
+    #[ORM\Column(type: 'string', length:255, nullable: true)]
+    private $walletNetWorth;
+
     public function getId(): ?int
     {
         return $this->id;
@@ -82,5 +85,15 @@ class Transaction
     public function setTxUrl(string $txUrl)
     {
         $this->txUrl = $txUrl;
+    }
+
+    public function getWalletNetWorth(): ?string
+    {
+        return $this->walletNetWorth;
+    }
+
+    public function setWalletNetWorth(string $walletNetWorth): void
+    {
+        $this->walletNetWorth = $walletNetWorth;
     }
 }
