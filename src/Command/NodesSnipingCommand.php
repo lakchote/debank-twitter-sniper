@@ -6,6 +6,7 @@ namespace App\Command;
 
 use App\Entity\Transaction;
 use App\Entity\Wallet;
+use App\Helper\RegexHelper;
 use App\Repository\TransactionRepository;
 use App\Repository\WalletRepository;
 use Facebook\WebDriver\Chrome\ChromeOptions;
@@ -39,12 +40,13 @@ class NodesSnipingCommand extends Command
         'line_tx_network'  => '.History_rowChain__eo4NT',
     ];
     private const TX_TYPE_VISUALS_MAPPING = [
-        'mint'    => '🖼️',
-        'node'    => '💰',
-        'buy'     => '🤑',
-        'stake'   => '🪙',
-        'unstake' => '💸',
-        'swap'    => '🔄',
+        'mint'     => '🖼️',
+        'node'     => '💰',
+        'buy'      => '🤑',
+        'stake'    => '🪙',
+        'unstake'  => '💸',
+        'swap'     => '🔄',
+        'contract' => '📝',
     ];
 
     private ChatterInterface $chatter;
@@ -134,8 +136,10 @@ class NodesSnipingCommand extends Command
                 return 'unstake';
             case (stripos($txInput, 'stake') !== false):
                 return 'stake';
-            case (stripos($txInput, 'swap') !== false) || (stripos($txInput, 'contract') !== false):
+            case (stripos($txInput, 'swap') !== false):
                 return 'swap';
+            case (stripos($txInput, 'contract') !== false):
+                return 'contract';
             default:
                 return 'other';
         }
@@ -187,12 +191,6 @@ class NodesSnipingCommand extends Command
 
     private function handleMultipleTxs(Wallet $wallet, RemoteWebElement $line, string $walletNetWorth, string $txNetwork, string $txUrl, string $txType): void
     {
-        $nfts = $wallet->getNfts();
-        $nodes = $wallet->getNodes();
-        $buys = $wallet->getBuys();
-        $stakes = $wallet->getStakes();
-        $unstakes = $wallet->getUnstakes();
-        $swaps = $wallet->getSwaps();
         $walletName = $wallet->getName();
 
         $txToken = $line->findElements(WebDriverBy::cssSelector(self::HISTORY_TABLE_DATA['line_tx_token']));
@@ -201,7 +199,7 @@ class NodesSnipingCommand extends Command
         if (count($txToken) === 1 && $txType === 'node') {
             $title = $txToken[0]->getAttribute('title');
             $this->addTransaction($wallet, $walletNetWorth, $txType, $txUrl, $title);
-            if (!in_array($title, $nodes)) {
+            if (!in_array($title, $wallet->getNodes())) {
                 $wallet->addNode($title);
                 $this->walletRepository->persist($wallet);
                 $this->sendSingleTxChatMessage(
@@ -219,7 +217,7 @@ class NodesSnipingCommand extends Command
         if (count($txToken) === 1 && $txType === 'stake') {
             $title = $txToken[0]->getAttribute('title');
             $this->addTransaction($wallet, $walletNetWorth, $txType, $txUrl, $title);
-            if ((!$stakes) || !in_array($title, $stakes)) {
+            if ((!$wallet->getStakes()) || !in_array($title, $wallet->getStakes())) {
                 $wallet->addStake($title);
                 $this->walletRepository->persist($wallet);
                 $this->sendSingleTxChatMessage(
@@ -244,63 +242,65 @@ class NodesSnipingCommand extends Command
                 $title = $tx->getAttribute('title');
                 $inText[] = $tx->getDomProperty('textContent');
                 if ($txType === 'mint') {
-                    if ((!$nfts) || !in_array($title, $nfts)) {
+                    if ((!$wallet->getNfts()) || !in_array($title, $wallet->getNfts())) {
                         $isNew = true;
                         $wallet->addNft($title);
                     }
-
-                    $this->addTransaction($wallet, $walletNetWorth, $txType, $txUrl, $title);
-                    $this->walletRepository->persist($wallet);
                 } elseif ($txType === 'node') {
-                    if ((!$nodes) || !in_array($title, $nodes)) {
+                    if ((!$wallet->getNodes()) || !in_array($title, $wallet->getNodes())) {
                         $isNew = true;
                         $wallet->addNode($title);
                     }
-
-                    $this->addTransaction($wallet, $walletNetWorth, $txType, $txUrl, $title);
-                    $this->walletRepository->persist($wallet);
                 } elseif ($txType === 'buy') {
-                    if ((!$buys) || !in_array($title, $buys)) {
+                    if ((!$wallet->getBuys()) || !in_array($title, $wallet->getBuys())) {
                         $isNew = true;
                         $wallet->addBuy($title);
                     }
-
-                    $this->addTransaction($wallet, $walletNetWorth, $txType, $txUrl, $title);
-                    $this->walletRepository->persist($wallet);
                 } elseif ($txType === 'stake') {
-                    if ((!$stakes) || !in_array($title, $stakes)) {
+                    if ((!$wallet->getStakes()) || !in_array($title, $wallet->getStakes())) {
                         $isNew = true;
                         $wallet->addStake($title);
                     }
-
-                    $this->addTransaction($wallet, $walletNetWorth, $txType, $txUrl, $title);
-                    $this->walletRepository->persist($wallet);
                 } elseif ($txType === 'unstake') {
-                    if ((!$unstakes) || !in_array($title, $unstakes)) {
+                    if ((!$wallet->getUnstakes()) || !in_array($title, $wallet->getUnstakes())) {
                         $isNew = true;
                         $wallet->addUnstake($title);
                     }
-
-                    $this->addTransaction($wallet, $walletNetWorth, $txType, $txUrl, $title);
-                    $this->walletRepository->persist($wallet);
                 } elseif ($txType === 'swap') {
                     if ($this->isSwapOutTextSkippable($title)) {
                         continue;
                     }
 
-                    if ((!$swaps) || !in_array($title, $swaps)) {
+                    if ((!$wallet->getSwaps()) || !in_array($title, $wallet->getSwaps())) {
                         $isNew = true;
                         $wallet->addSwap($title);
                     }
+                } elseif ($txType === 'contract') {
+                    if ($this->isSwapOutTextSkippable($title)) {
+                        continue;
+                    }
+                    $contractName = RegexHelper::getContractName($title);
+                    if ((!$wallet->getContracts()) || !in_array($contractName, $wallet->getContracts())) {
+                        $isNew = true;
+                        $wallet->addContract($contractName);
 
-                    $this->addTransaction($wallet, $walletNetWorth, $txType, $txUrl, $title);
-                    $this->walletRepository->persist($wallet);
+                    }
                 }
+                $this->addTransaction($wallet, $walletNetWorth, $txType, $txUrl, $title);
+                $this->walletRepository->persist($wallet);
             }
         }
 
         if ($isNew) {
-            $this->sendMultipleTxChatMessage($outText, implode("\n", $inText), $txType, $txNetwork, $txUrl, $walletName, $walletNetWorth);
+            $this->sendMultipleTxChatMessage(
+                $outText,
+                implode("\n", $inText),
+                $txType,
+                $txNetwork,
+                $txUrl,
+                $walletName,
+                $walletNetWorth
+            );
         }
     }
 
@@ -333,7 +333,8 @@ class NodesSnipingCommand extends Command
             'FTM',
             'METIS',
             'MIM',
-            'UST'
+            'UST',
+            'ELK'
         ];
 
         foreach ($outTextToSkip as $text) {
@@ -377,7 +378,7 @@ class NodesSnipingCommand extends Command
         $this->chatter->send(
             new ChatMessage(
                 sprintf(
-                    "%s [%s] New %s transaction found for (%s - %s) : \n\n ⬇️ : \n %s \n ⬆️ : %s \n URL : %s",
+                    "%s [%s] New %s transaction found for (%s - %s) : \n\n %s \n %s \n\n URL : %s",
                     self::TX_TYPE_VISUALS_MAPPING[$txType],
                     $txType,
                     $txNetwork,

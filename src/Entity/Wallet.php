@@ -39,6 +39,9 @@ class Wallet
     #[ORM\Column(type: 'json', nullable: true)]
     private $swaps = [];
 
+    #[ORM\Column(type: 'json', nullable: true)]
+    private $contracts = [];
+
     #[ORM\Column(type: 'boolean')]
     private $toSnipe;
 
@@ -136,6 +139,16 @@ class Wallet
     public function addSwap(string $swap): void
     {
         $this->swaps[] = $swap;
+    }
+
+    public function getContracts(): ?array
+    {
+        return $this->contracts;
+    }
+
+    public function addContract(string $contract): void
+    {
+        $this->contracts[] = $contract;
     }
 
     public function isToSnipe(): ?bool
