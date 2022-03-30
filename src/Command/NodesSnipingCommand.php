@@ -334,7 +334,8 @@ class NodesSnipingCommand extends Command
             'METIS',
             'MIM',
             'UST',
-            'ELK'
+            'ELK',
+            'MATIC'
         ];
 
         foreach ($outTextToSkip as $text) {
