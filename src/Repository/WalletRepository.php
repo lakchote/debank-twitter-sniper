@@ -13,18 +13,18 @@ class WalletRepository extends ServiceEntityRepository
         parent::__construct($registry, Wallet::class);
     }
 
-    public function save(Wallet $wallet)
+    public function save(Wallet $wallet): void
     {
         $this->_em->persist($wallet);
         $this->_em->flush();
     }
 
-    public function persist(Wallet $wallet)
+    public function persist(Wallet $wallet): void
     {
         $this->_em->persist($wallet);
     }
 
-    public function flush()
+    public function flush(): void
     {
         $this->_em->flush();
     }
@@ -38,5 +38,23 @@ class WalletRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult()
         ;
+    }
+
+    public function findAllWalletNames(): array
+    {
+        return $this->createQueryBuilder('w')
+            ->select('w.name')
+            ->getQuery()
+            ->getResult()
+            ;
+    }
+
+    public function deleteWalletNamesInArray(array $walletNamesToDelete): void
+    {
+        $qb = $this->createQueryBuilder('w');
+        $qb->delete()
+            ->where($qb->expr()->in('w.name', $walletNamesToDelete))
+            ->getQuery()
+            ->execute();
     }
 }

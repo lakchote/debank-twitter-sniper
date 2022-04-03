@@ -10,17 +10,17 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 class ResetDBCommand extends Command
 {
-    protected static $defaultName = 'reset-db';
+    protected static $defaultName = 'init-db';
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         exec('bin/console d:d:d --force');
         exec('bin/console d:d:c');
         exec('bin/console d:m:m --no-interaction');
-        exec('bin/console import-wallets');
-        exec('bin/console import-twitter-influencers');
+        exec('bin/console sniper:import');
+        exec('bin/console twitter:import');
 
-        $output->writeln('Database reset.');
+        $output->writeln('You are ready to go.');
 
         return 0;
     }

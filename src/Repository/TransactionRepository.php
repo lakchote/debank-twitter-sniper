@@ -19,12 +19,12 @@ class TransactionRepository extends ServiceEntityRepository
         $this->_em->flush();
     }
 
-    public function persist(Transaction $transaction)
+    public function persist(Transaction $transaction): void
     {
         $this->_em->persist($transaction);
     }
 
-    public function flush()
+    public function flush(): void
     {
         $this->_em->flush();
     }

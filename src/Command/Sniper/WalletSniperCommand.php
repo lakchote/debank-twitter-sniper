@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Command;
+namespace App\Command\Sniper;
 
 use App\Entity\Transaction;
 use App\Entity\Wallet;
@@ -20,9 +20,9 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Notifier\ChatterInterface;
 use Symfony\Component\Notifier\Message\ChatMessage;
 
-class NodesSnipingCommand extends Command
+class WalletSniperCommand extends Command
 {
-    protected static $defaultName = 'snipe';
+    protected static $defaultName = 'sniper:snipe';
 
     private const URL = 'https://debank.com/profile/%s/history';
     private const HOST = 'http://localhost:1337';
@@ -352,7 +352,7 @@ class NodesSnipingCommand extends Command
         $this->chatter->send(
             new ChatMessage(
                 sprintf(
-                    "%s [%s] New %s transaction found for (%s - %s) : \n\n ⬇️ : \n %s \n URL : %s",
+                    "%s [%s] New %s transaction found for (%s - %s) : \n\n %s \n URL : %s",
                     self::TX_TYPE_VISUALS_MAPPING[$txType],
                     $txType,
                     $txNetwork,

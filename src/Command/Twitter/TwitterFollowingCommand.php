@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Command;
+namespace App\Command\Twitter;
 
 use App\Repository\TwitterInfluencerRepository;
 use Symfony\Component\Console\Command\Command;
@@ -13,9 +13,9 @@ use Symfony\Component\Notifier\ChatterInterface;
 use Symfony\Component\Notifier\Message\ChatMessage;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
-class TheOracleCommand extends Command
+class TwitterFollowingCommand extends Command
 {
-    protected static $defaultName = 'the-oracle';
+    protected static $defaultName = 'twitter:followings';
 
     private const TWITTER_API_FOLLOWING_BY_USERID = 'https://api.twitter.com/2/users/%s/following';
 

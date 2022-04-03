@@ -13,7 +13,7 @@ class TwitterInfluencerRepository extends ServiceEntityRepository
         parent::__construct($registry, TwitterInfluencer::class);
     }
 
-    public function deleteUsersNotInArray(array $usersToKeep)
+    public function deleteUsersNotInArray(array $usersToKeep): void
     {
         $qb = $this->createQueryBuilder('t');
         $qb->delete()
@@ -22,7 +22,16 @@ class TwitterInfluencerRepository extends ServiceEntityRepository
             ->execute();
     }
 
-    public function countFollowingsWithUsername(string $username)
+    public function deleteUsersInArray(array $userToDelete): void
+    {
+        $qb = $this->createQueryBuilder('t');
+        $qb->delete()
+            ->where($qb->expr()->in('t.username', $userToDelete))
+            ->getQuery()
+            ->execute();
+    }
+
+    public function countFollowingsWithUsername(string $username): int
     {
         return $this->createQueryBuilder('t')
             ->select('count(t)')
@@ -32,12 +41,20 @@ class TwitterInfluencerRepository extends ServiceEntityRepository
             ->getSingleColumnResult();
     }
 
-    public function persist(TwitterInfluencer $wallet)
+    public function findAllTwitterInfluencerNames(): array
+    {
+        return $this->createQueryBuilder('t')
+            ->select('t.username')
+            ->getQuery()
+            ->getResult();
+    }
+
+    public function persist(TwitterInfluencer $wallet): void
     {
         $this->_em->persist($wallet);
     }
 
-    public function flush()
+    public function flush(): void
     {
         $this->_em->flush();
     }

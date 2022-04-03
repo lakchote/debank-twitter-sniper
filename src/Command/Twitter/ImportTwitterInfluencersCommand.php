@@ -2,26 +2,21 @@
 
 declare(strict_types=1);
 
-namespace App\Command;
+namespace App\Command\Twitter;
 
 use App\Entity\TwitterInfluencer;
 use App\Repository\TwitterInfluencerRepository;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Console\Question\Question;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 class ImportTwitterInfluencersCommand extends Command
 {
-    protected static $defaultName = 'import-twitter-influencers';
+    protected static $defaultName = 'twitter:import';
 
     private const TWITTER_API_USERID_BY_USERNAME = 'https://api.twitter.com/2/users/by/username/%s';
-    private const INFLUENCERS_USERNAME_TO_FOLLOW = [
-        'NodeBaron',
-        'Stonedpipez',
-        'ThomasGCrypto',
-        '0xArjay',
-    ];
 
     private string $bearerToken;
     private HttpClientInterface $httpClient;
@@ -38,10 +33,22 @@ class ImportTwitterInfluencersCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $output->writeln('<info>Importing Twitter influencers</info>');
-        $this->twitterInfluencerRepository->deleteUsersNotInArray(self::INFLUENCERS_USERNAME_TO_FOLLOW);
+        $output->writeln('<info>Importing Twitter influencers...</info>');
 
-        foreach (self::INFLUENCERS_USERNAME_TO_FOLLOW as $username) {
+        $question = new Question("Which Twitter handles do you want to follow ?\n");
+        $question
+            ->setValidator(function ($value) {
+                if (empty($value)) {
+                    throw new \RuntimeException('You must enter at least one Twitter handle');
+                }
+
+                return $value;
+            });
+        $question->setMultiline(true);
+        $answer = $this->getHelper('question')->ask($input, $output, $question);
+        $twitterHandles = array_map('trim', explode("\n", $answer));
+
+        foreach ($twitterHandles as $username) {
             $isUserExists = $this->twitterInfluencerRepository->findOneBy(['username' => $username]);
             if ($isUserExists) {
                 continue;
