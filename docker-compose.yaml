@@ -1,0 +1,9 @@
+version: '3.7'
+services:
+    database:
+        image: 'mariadb:10.7.3-focal'
+        environment:
+            MYSQL_ROOT_PASSWORD: p4wkqpzo8k1jZlm2
+            MYSQL_DATABASE: main
+        ports:
+            - '34231:3306'

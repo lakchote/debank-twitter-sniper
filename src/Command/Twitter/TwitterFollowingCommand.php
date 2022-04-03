@@ -36,7 +36,7 @@ class TwitterFollowingCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $output->writeln(sprintf('<info>[%s] Running The Oracle...</info>', $this->getDateTime()));
+        $output->writeln(sprintf('<info>[%s] Running Twitter followings sniper...</info>', $this->getDateTime()));
 
         $twitterInfluencers = $this->twitterInfluencerRepository->findAll();
         foreach ($twitterInfluencers as $twitterInfluencer) {
@@ -44,7 +44,7 @@ class TwitterFollowingCommand extends Command
             $username = $twitterInfluencer->getUsername();
             $userFollowing = $twitterInfluencer->getFollowing();
 
-            $output->writeln(sprintf('<info>[%s] Looking up %s following...</info>', $this->getDateTime(), $username));
+            $output->writeln(sprintf('<info>[%s] Looking up %s followings...</info>', $this->getDateTime(), $username));
 
             $nextToken = null;
             $queryParams['user.fields'] = 'description,created_at,public_metrics';
@@ -87,7 +87,7 @@ class TwitterFollowingCommand extends Command
             $this->twitterInfluencerRepository->flush();
         }
 
-        $output->writeln(sprintf('<info>[%s] The Oracle is done!</info>', $this->getDateTime()));
+        $output->writeln(sprintf('<info>[%s] Twitter followings scraped</info>', $this->getDateTime()));
 
         return 0;
     }
