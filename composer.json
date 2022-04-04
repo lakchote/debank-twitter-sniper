@@ -10,6 +10,7 @@
         "doctrine/doctrine-bundle": "^2.5",
         "doctrine/doctrine-migrations-bundle": "^3.2",
         "doctrine/orm": "^2.11",
+        "google/apiclient": "^2.12.1",
         "php-webdriver/webdriver": "^1.12",
         "symfony/console": "6.0.*",
         "symfony/dotenv": "6.0.*",

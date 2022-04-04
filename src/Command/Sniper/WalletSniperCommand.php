@@ -9,6 +9,7 @@ use App\Entity\Wallet;
 use App\Helper\RegexHelper;
 use App\Repository\TransactionRepository;
 use App\Repository\WalletRepository;
+use App\Service\GoogleSheet;
 use Facebook\WebDriver\Chrome\ChromeOptions;
 use Facebook\WebDriver\Remote\DesiredCapabilities;
 use Facebook\WebDriver\Remote\RemoteWebDriver;
@@ -17,8 +18,6 @@ use Facebook\WebDriver\WebDriverBy;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\Notifier\ChatterInterface;
-use Symfony\Component\Notifier\Message\ChatMessage;
 
 class WalletSniperCommand extends Command
 {
@@ -27,6 +26,8 @@ class WalletSniperCommand extends Command
     private const URL = 'https://debank.com/profile/%s/history';
     private const HOST = 'http://localhost:1337';
     private const SLEEP_LOAD_DEBANK = 15;
+    private const GOOGLE_SHEET_WALLETS = 'Wallets';
+    private const GOOGLE_SHEET_TRANSACTIONS = 'Transactions History';
 
     private const HISTORY_TABLE_DATA = [
         'main'             => '.History_table__9zhFG',
@@ -49,17 +50,21 @@ class WalletSniperCommand extends Command
         'contract' => '📝',
     ];
 
-    private ChatterInterface $chatter;
     private WalletRepository $walletRepository;
     private TransactionRepository $transactionRepository;
+    private GoogleSheet $googleSheetService;
 
-    public function __construct(ChatterInterface $chatter, WalletRepository $walletRepository, TransactionRepository $transactionRepository)
+    public function __construct(
+        WalletRepository $walletRepository,
+        TransactionRepository $transactionRepository,
+        GoogleSheet $googleSheetService,
+    )
     {
         parent::__construct();
 
-        $this->chatter = $chatter;
         $this->walletRepository = $walletRepository;
         $this->transactionRepository = $transactionRepository;
+        $this->googleSheetService = $googleSheetService;
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -87,12 +92,6 @@ class WalletSniperCommand extends Command
                     $output->writeln(
                         sprintf('<info>[%s] No transactions found.</info>', $this->getDateTime())
                     );
-
-                    $this->chatter->send(
-                        new ChatMessage(
-                            sprintf('⚠️ No transactions found for %s', $wallet->getName())
-                        )
-                    );
                 }
 
                 $output->writeln('<info>Extracting data...</info>');
@@ -109,12 +108,6 @@ class WalletSniperCommand extends Command
         } catch (\Throwable $e) {
             $output->writeln(
                 sprintf('❌ An error occured : %s, line : %s', $e->getMessage(), $e->getLine())
-            );
-
-            $this->chatter->send(
-            new ChatMessage(
-            sprintf('❌ An error occured : %s, line : %s', $e->getMessage(), $e->getLine())
-            )
             );
 
             $driver->quit();
@@ -138,7 +131,7 @@ class WalletSniperCommand extends Command
                 return 'stake';
             case (stripos($txInput, 'swap') !== false):
                 return 'swap';
-            case (stripos($txInput, 'contract') !== false):
+            case (stripos($txInput, 'contract') !== false) || (stripos($txInput, 'multicall') !== false):
                 return 'contract';
             default:
                 return 'other';
@@ -198,17 +191,18 @@ class WalletSniperCommand extends Command
         // Single-sided transactions
         if (count($txToken) === 1 && $txType === 'node') {
             $title = $txToken[0]->getAttribute('title');
-            $this->addTransaction($wallet, $walletNetWorth, $txType, $txUrl, $title);
+            $this->addTransaction($wallet, $walletNetWorth, $txType, $txUrl, $title, $txNetwork);
             if (!in_array($title, $wallet->getNodes())) {
                 $wallet->addNode($title);
                 $this->walletRepository->persist($wallet);
-                $this->sendSingleTxChatMessage(
-                    $txToken[0]->getDomProperty('textContent'),
-                    $txType,
-                    $txNetwork,
-                    $txUrl,
+                $this->appendToGoogleSheet(
+                    self::GOOGLE_SHEET_WALLETS,
                     $walletName,
-                    $walletNetWorth
+                    $txNetwork,
+                    $txType,
+                    $txUrl,
+                    $walletNetWorth,
+                    $txToken[0]->getDomProperty('textContent')
                 );
             }
 
@@ -216,17 +210,18 @@ class WalletSniperCommand extends Command
         }
         if (count($txToken) === 1 && $txType === 'stake') {
             $title = $txToken[0]->getAttribute('title');
-            $this->addTransaction($wallet, $walletNetWorth, $txType, $txUrl, $title);
+            $this->addTransaction($wallet, $walletNetWorth, $txType, $txUrl, $title, $txNetwork);
             if ((!$wallet->getStakes()) || !in_array($title, $wallet->getStakes())) {
                 $wallet->addStake($title);
                 $this->walletRepository->persist($wallet);
-                $this->sendSingleTxChatMessage(
-                    $txToken[0]->getDomProperty('textContent'),
-                    $txType,
-                    $txNetwork,
-                    $txUrl,
+                $this->appendToGoogleSheet(
+                    self::GOOGLE_SHEET_WALLETS,
                     $walletName,
-                    $walletNetWorth
+                    $txNetwork,
+                    $txType,
+                    $txUrl,
+                    $walletNetWorth,
+                    $txToken[0]->getDomProperty('textContent')
                 );
             }
 
@@ -234,6 +229,7 @@ class WalletSniperCommand extends Command
         }
 
         $isNew = false;
+        $inText = null;
         // Multi-sided transactions
         foreach ($txToken as $k => $tx) {
             if ($k === 0) {
@@ -286,25 +282,26 @@ class WalletSniperCommand extends Command
 
                     }
                 }
-                $this->addTransaction($wallet, $walletNetWorth, $txType, $txUrl, $title);
+                $this->addTransaction($wallet, $walletNetWorth, $txType, $txUrl, $title, $txNetwork);
                 $this->walletRepository->persist($wallet);
             }
         }
 
         if ($isNew) {
-            $this->sendMultipleTxChatMessage(
-                $outText,
-                implode("\n", $inText),
-                $txType,
-                $txNetwork,
-                $txUrl,
+            $this->appendToGoogleSheet(
+                self::GOOGLE_SHEET_WALLETS,
                 $walletName,
-                $walletNetWorth
+                $txNetwork,
+                $txType,
+                $txUrl,
+                $walletNetWorth,
+                $outText,
+                $inText,
             );
         }
     }
 
-    private function addTransaction(Wallet $wallet, string $walletNetWorth, string $txType, string $txUrl, string $token): void
+    private function addTransaction(Wallet $wallet, string $walletNetWorth, string $txType, string $txUrl, string $token, string $txNetwork): void
     {
         $isTxExist = $this->transactionRepository->findOneBy(['txUrl' => $txUrl]);
         if ($isTxExist) {
@@ -319,6 +316,15 @@ class WalletSniperCommand extends Command
         $transaction->setDate(new \DateTime());
         $wallet->addTransaction($transaction);
         $this->transactionRepository->persist($transaction);
+        $this->appendToGoogleSheet(
+            self::GOOGLE_SHEET_TRANSACTIONS,
+            $wallet->getName(),
+            $txNetwork,
+            $txType,
+            $txUrl,
+            $walletNetWorth,
+            $token
+        );
     }
 
     private function isSwapOutTextSkippable(string $outText) : bool
@@ -347,49 +353,22 @@ class WalletSniperCommand extends Command
         return false;
     }
 
-    private function sendSingleTxChatMessage(string $outText, string $txType, string $txNetwork, string $txUrl, string $walletName, string $walletNetWorth): void
+    private function appendToGoogleSheet(string $sheetName, string $walletName, string $txNetwork, string $txType, string $txUrl, string $walletNetWorth, string $outText, ?array $inText = null): void
     {
-        $this->chatter->send(
-            new ChatMessage(
-                sprintf(
-                    "%s [%s] New %s transaction found for (%s - %s) : \n\n %s \n URL : %s",
-                    self::TX_TYPE_VISUALS_MAPPING[$txType],
-                    $txType,
-                    $txNetwork,
+        $inputData = ($inText) ? $outText . "\n" . implode("\n", $inText) : $outText;
+        $inputData = str_replace(['+', '-'], [' +', ' -'], $inputData);
+        $this->googleSheetService->appendValues(
+            $sheetName,
+            [
+                [
                     $walletName,
-                    $walletNetWorth,
-                    $outText,
-                    $txUrl
-                )
-            )
-        );
-        sleep(1);
-    }
-
-    private function sendMultipleTxChatMessage(
-        string $outText,
-        string $inText,
-        string $txType,
-        string $txNetwork,
-        string $txUrl,
-        string $walletName,
-        string $walletNetWorth
-    ): void
-    {
-        $this->chatter->send(
-            new ChatMessage(
-                sprintf(
-                    "%s [%s] New %s transaction found for (%s - %s) : \n\n %s \n %s \n\n URL : %s",
-                    self::TX_TYPE_VISUALS_MAPPING[$txType],
-                    $txType,
                     $txNetwork,
-                    $walletName,
-                    $walletNetWorth,
-                    $outText,
-                    $inText,
-                    $txUrl
-                )
-            )
+                    self::TX_TYPE_VISUALS_MAPPING[$txType] . '' . $txType,
+                    $inputData,
+                    $txUrl,
+                    $walletNetWorth
+                ]
+            ]
         );
         sleep(1);
     }

@@ -1,4 +1,3 @@
-
 /.env.local
 /.env.local.php
 /.env.*.local
@@ -8,3 +7,4 @@
 /vendor/
 .idea/
 skeleton
+credentials.json
