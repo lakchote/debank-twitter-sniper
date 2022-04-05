@@ -5,10 +5,11 @@ declare(strict_types=1);
 namespace App\Service;
 
 use Google\Client;
+use Google\Service\Sheets\ClearValuesRequest;
 
 class GoogleSheet
 {
-    private const DEFAULT_RANGE = '!A1:ZZ';
+    private const DEFAULT_RANGE = '!A2:ZZ';
     private string $spreadsheetId;
     private Client $client;
 
@@ -45,7 +46,7 @@ class GoogleSheet
         return $response->getSheets();
     }
 
-    public function getValues(string $sheetName): array
+    public function getValues(string $sheetName): ?array
     {
         $sheet = $this->getSheet($sheetName);
         $range = $sheet->getProperties()->getTitle() . self::DEFAULT_RANGE;
@@ -67,6 +68,20 @@ class GoogleSheet
         throw new \Exception('Cell not found');
     }
 
+    public function prependValues(string $sheetName, array $values): void
+    {
+        $sheet = $this->getSheet($sheetName);
+        $range = $sheet->getProperties()->getTitle() . self::DEFAULT_RANGE;
+        $existingValues = $this->getValues($sheetName);
+        if ($existingValues) {
+            $service = new \Google_Service_Sheets($this->client);
+            $service->spreadsheets_values->clear($this->spreadsheetId, $range, new ClearValuesRequest());
+            $this->appendValues($sheetName, $values);
+            $this->appendValues($sheetName, $existingValues);
+        } else {
+            $this->appendValues($sheetName, $values);
+        }
+    }
 
     public function appendValues(string $sheetName, array $values): void
     {
@@ -79,5 +94,6 @@ class GoogleSheet
             'valueInputOption' => 'USER_ENTERED',
         ];
         $service->spreadsheets_values->append($this->spreadsheetId, $range, $valueRange, $params);
+        sleep(1);
     }
 }

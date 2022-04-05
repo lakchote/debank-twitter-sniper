@@ -195,7 +195,7 @@ class WalletSniperCommand extends Command
             if (!in_array($title, $wallet->getNodes())) {
                 $wallet->addNode($title);
                 $this->walletRepository->persist($wallet);
-                $this->appendToGoogleSheet(
+                $this->prependToGoogleSheet(
                     self::GOOGLE_SHEET_WALLETS,
                     $walletName,
                     $txNetwork,
@@ -214,7 +214,7 @@ class WalletSniperCommand extends Command
             if ((!$wallet->getStakes()) || !in_array($title, $wallet->getStakes())) {
                 $wallet->addStake($title);
                 $this->walletRepository->persist($wallet);
-                $this->appendToGoogleSheet(
+                $this->prependToGoogleSheet(
                     self::GOOGLE_SHEET_WALLETS,
                     $walletName,
                     $txNetwork,
@@ -288,7 +288,7 @@ class WalletSniperCommand extends Command
         }
 
         if ($isNew) {
-            $this->appendToGoogleSheet(
+            $this->prependToGoogleSheet(
                 self::GOOGLE_SHEET_WALLETS,
                 $walletName,
                 $txNetwork,
@@ -316,7 +316,7 @@ class WalletSniperCommand extends Command
         $transaction->setDate(new \DateTime());
         $wallet->addTransaction($transaction);
         $this->transactionRepository->persist($transaction);
-        $this->appendToGoogleSheet(
+        $this->prependToGoogleSheet(
             self::GOOGLE_SHEET_TRANSACTIONS,
             $wallet->getName(),
             $txNetwork,
@@ -353,14 +353,15 @@ class WalletSniperCommand extends Command
         return false;
     }
 
-    private function appendToGoogleSheet(string $sheetName, string $walletName, string $txNetwork, string $txType, string $txUrl, string $walletNetWorth, string $outText, ?array $inText = null): void
+    private function prependToGoogleSheet(string $sheetName, string $walletName, string $txNetwork, string $txType, string $txUrl, string $walletNetWorth, string $outText, ?array $inText = null): void
     {
         $inputData = ($inText) ? $outText . "\n" . implode("\n", $inText) : $outText;
         $inputData = str_replace(['+', '-'], [' +', ' -'], $inputData);
-        $this->googleSheetService->appendValues(
+        $this->googleSheetService->prependValues(
             $sheetName,
             [
                 [
+                    (new \DateTime())->format('Y-m-d'),
                     $walletName,
                     $txNetwork,
                     self::TX_TYPE_VISUALS_MAPPING[$txType] . '' . $txType,
@@ -370,6 +371,5 @@ class WalletSniperCommand extends Command
                 ]
             ]
         );
-        sleep(1);
     }
 }

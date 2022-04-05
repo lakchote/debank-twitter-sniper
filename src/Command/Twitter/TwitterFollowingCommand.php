@@ -83,6 +83,7 @@ class TwitterFollowingCommand extends Command
                             $this->twitterInfluencerRepository->persist($twitterInfluencer);
                         }
                     }
+                    sleep(1);
                 } while (array_key_exists('next_token', $json));
             } catch (\Exception $e) {
                 throw new \RuntimeException(sprintf('[%s] An error occured : %s', $this->getDateTime(), $e->getMessage()));
@@ -109,17 +110,15 @@ class TwitterFollowingCommand extends Command
         int $followersCount
     ): void
     {
-        $options = new TelegramOptions(['chat_id' => '-771321845']);
-
         $createdAt = new \DateTime($usernameFollowedCreatedAt);
         $now = new \DateTime();
         $interval = $now->diff($createdAt);
 
-
-        $this->googleSheetService->appendValues(
+        $this->googleSheetService->prependValues(
             self::GOOGLE_SHEET_TWITTER_FOLLOWINGS,
             [
                 [
+                    (new \DateTime())->format('Y-m-d'),
                     $twitterInfluencerUsername,
                     $usernameFollowed,
                     '👤 ' . $followersCount,
@@ -130,7 +129,6 @@ class TwitterFollowingCommand extends Command
         );
         sleep(1);
     }
-
 
     private function throwOnInvalidJson(array $data): void
     {
