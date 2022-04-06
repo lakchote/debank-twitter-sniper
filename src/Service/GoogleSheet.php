@@ -5,13 +5,11 @@ declare(strict_types=1);
 namespace App\Service;
 
 use Google\Client;
-use Google\Service\Sheets\ClearValuesRequest;
 use Google\Service\Sheets\ValueRange;
 
 class GoogleSheet
 {
-    private const DEFAULT_RANGE = '!A2:ZZ';
-    private const DEFAULT_CLEAN_RANGE = '!A:G';
+    private const DEFAULT_RANGE = '!A1:Z1';
     private string $spreadsheetId;
     private Client $client;
 
@@ -71,33 +69,12 @@ class GoogleSheet
         throw new \Exception('Cell not found');
     }
 
-    public function prependValues(string $sheetName, array $values): void
+    public function appendValues(string $sheetName, array $values): void
     {
-        $clearRange = $sheetName . self::DEFAULT_CLEAN_RANGE;
-        $range = $sheetName . self::DEFAULT_RANGE;
-        $existingValues = $this->getValues($sheetName);
         $valueRange = new \Google_Service_Sheets_ValueRange();
         $valueRange->setValues($values);
-        $valueRange->setRange($range);
-        if ($existingValues) {
-            $service = new \Google_Service_Sheets($this->client);
-            $this->retry(
-                function() use ($service, $clearRange) {
-                    $service->spreadsheets_values->clear($this->spreadsheetId, $clearRange, new ClearValuesRequest());
-                }
-            );
-            $this->appendValues($valueRange);
-            $this->appendValues($existingValues);
-        } else {
-            $this->appendValues($valueRange);
-        }
-    }
-
-    public function appendValues(ValueRange $valueRange): void
-    {
-        $range = $valueRange->getRange();
         $service = new \Google_Service_Sheets($this->client);
-
+        $range = $sheetName . self::DEFAULT_RANGE;
         $params = [
             'valueInputOption' => 'USER_ENTERED',
         ];
@@ -119,7 +96,7 @@ class GoogleSheet
                 $sleep = $initialWait * 1E6;
 
                 usleep((int)$sleep);
-                $initialWait+=2;
+                $initialWait+=1;
 
                 return $this->retry($callable, $maxRetries - 1, $initialWait * $exponent, $exponent);
             }

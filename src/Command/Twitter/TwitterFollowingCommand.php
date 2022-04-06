@@ -114,7 +114,7 @@ class TwitterFollowingCommand extends Command
         $now = new \DateTime();
         $interval = $now->diff($createdAt);
 
-        $this->googleSheetService->prependValues(
+        $this->googleSheetService->appendValues(
             self::GOOGLE_SHEET_TWITTER_FOLLOWINGS,
             [
                 [
