@@ -114,7 +114,6 @@ class GoogleSheet
         } catch (\Throwable $e) {
 
             if ($maxRetries > 0) {
-                dump('SLEEPING');
                 $sleep = $initialWait * 1E6;
 
                 usleep((int)$sleep);
