@@ -10,7 +10,6 @@ use Google\Service\Sheets\ValueRange;
 
 class GoogleSheet
 {
-    private const EXPECTED_ERRORS = 'Google_Service_Exception';
     private const DEFAULT_RANGE = '!A2:ZZ';
     private string $spreadsheetId;
     private Client $client;
@@ -56,8 +55,7 @@ class GoogleSheet
         return $this->retry(
             function() use ($service, $range) {
                 return $service->spreadsheets_values->get($this->spreadsheetId, $range);
-            },
-            self::EXPECTED_ERRORS
+            }
         );
     }
 
@@ -103,31 +101,20 @@ class GoogleSheet
         $this->retry(
             function() use ($service, $range, $valueRange, $params) {
                 $service->spreadsheets_values->append($this->spreadsheetId, $range, $valueRange, $params);
-            },
-            self::EXPECTED_ERRORS
+            }
         );
     }
 
-    private function retry(callable $callable, $expectedErrors, $maxRetries = 5, $initialWait = 1.0, $exponent = 2)
+    private function retry(callable $callable, $maxRetries = 5, $initialWait = 1.0, $exponent = 2)
     {
-        if (!is_array($expectedErrors)) {
-            $expectedErrors = [$expectedErrors];
-        }
-
         try {
             return call_user_func($callable);
         } catch (\Exception $e) {
-            $errors = class_parents($e);
-            $errors[] = get_class($e);
-
-            if (!array_intersect($errors, $expectedErrors)) {
-                throw $e;
-            }
 
             if ($maxRetries > 0) {
                 usleep($initialWait * 1E6);
 
-                return $this->retry($callable, $expectedErrors, $maxRetries - 1, $initialWait * $exponent, $exponent);
+                return $this->retry($callable, $maxRetries - 1, $initialWait * $exponent, $exponent);
             }
 
             // max retries reached
