@@ -107,7 +107,7 @@ class WalletSniperCommand extends Command
 
         } catch (\Throwable $e) {
             $output->writeln(
-                sprintf('❌ An error occured : %s, backtrace : %s', $e->getMessage(), $e->getTrace())
+                sprintf('❌ An error occured : %s, backtrace : %s', $e->getMessage(), $e->getTraceAsString())
             );
 
             $driver->quit();
