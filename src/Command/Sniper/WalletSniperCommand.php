@@ -147,7 +147,7 @@ class WalletSniperCommand extends Command
     {
         $capabilities = DesiredCapabilities::chrome();
         $chromeOptions = new ChromeOptions();
-        $chromeOptions->addArguments(['--headless']);
+        $chromeOptions->addArguments(['--headless', '--disable-dev-shm-usage', '--no-sandbox']);
         $capabilities->setCapability(ChromeOptions::CAPABILITY_W3C, $chromeOptions);
 
         return RemoteWebDriver::create(self::HOST, $capabilities, 3600000,3600000);
