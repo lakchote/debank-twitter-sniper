@@ -110,7 +110,9 @@ class GoogleSheet
         } catch (\Exception $e) {
 
             if ($maxRetries > 0) {
-                usleep($initialWait * 1E6);
+                $sleep = $initialWait * 1E6;
+
+                usleep((int)$sleep);
 
                 return $this->retry($callable, $maxRetries - 1, $initialWait * $exponent, $exponent);
             }
