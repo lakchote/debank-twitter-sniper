@@ -11,6 +11,7 @@ use Google\Service\Sheets\ValueRange;
 class GoogleSheet
 {
     private const DEFAULT_RANGE = '!A2:ZZ';
+    private const DEFAULT_CLEAN_RANGE = '!A:G';
     private string $spreadsheetId;
     private Client $client;
 
@@ -72,6 +73,7 @@ class GoogleSheet
 
     public function prependValues(string $sheetName, array $values): void
     {
+        $clearRange = $sheetName . self::DEFAULT_CLEAN_RANGE;
         $range = $sheetName . self::DEFAULT_RANGE;
         $existingValues = $this->getValues($sheetName);
         $valueRange = new \Google_Service_Sheets_ValueRange();
@@ -80,8 +82,8 @@ class GoogleSheet
         if ($existingValues) {
             $service = new \Google_Service_Sheets($this->client);
             $this->retry(
-                function() use ($service, $range) {
-                    $service->spreadsheets_values->clear($this->spreadsheetId, $range, new ClearValuesRequest());
+                function() use ($service, $clearRange) {
+                    $service->spreadsheets_values->clear($this->spreadsheetId, $clearRange, new ClearValuesRequest());
                 }
             );
             $this->appendValues($valueRange);
