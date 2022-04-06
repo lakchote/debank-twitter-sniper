@@ -26,7 +26,7 @@ class WalletSniperCommand extends Command
     private const URL = 'https://debank.com/profile/%s/history';
     private const HOST = 'http://localhost:1337';
     private const SLEEP_LOAD_DEBANK = 15;
-    private const GOOGLE_SHEET_WALLETS = 'Wallets';
+    private const GOOGLE_SHEET_WALLETS = 'Wallets New Token Interactions';
     private const GOOGLE_SHEET_TRANSACTIONS = 'Transactions History';
 
     private const HISTORY_TABLE_DATA = [
