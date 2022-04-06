@@ -79,6 +79,7 @@ class GoogleSheet
         $valueRange->setRange($range);
         if ($existingValues) {
             $service = new \Google_Service_Sheets($this->client);
+            dump('CLEAR');
             $service->spreadsheets_values->clear($this->spreadsheetId, $range, new ClearValuesRequest());
             $this->appendValues($valueRange);
             $this->appendValues($existingValues);
@@ -107,12 +108,14 @@ class GoogleSheet
     {
         try {
             return call_user_func($callable);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
 
             if ($maxRetries > 0) {
+                dump('SLEEPING');
                 $sleep = $initialWait * 1E6;
 
                 usleep((int)$sleep);
+                $initialWait+=2;
 
                 return $this->retry($callable, $maxRetries - 1, $initialWait * $exponent, $exponent);
             }
