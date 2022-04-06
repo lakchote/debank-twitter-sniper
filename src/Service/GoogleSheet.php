@@ -103,7 +103,7 @@ class GoogleSheet
         );
     }
 
-    private function retry(callable $callable, $maxRetries = 5, $initialWait = 1.0, $exponent = 2)
+    private function retry(callable $callable, $maxRetries = 15, $initialWait = 5.0, $exponent = 2)
     {
         try {
             return call_user_func($callable);
