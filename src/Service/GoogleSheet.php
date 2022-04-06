@@ -6,9 +6,11 @@ namespace App\Service;
 
 use Google\Client;
 use Google\Service\Sheets\ClearValuesRequest;
+use Google\Service\Sheets\ValueRange;
 
 class GoogleSheet
 {
+    private const EXPECTED_ERRORS = 'Google_Service_Exception';
     private const DEFAULT_RANGE = '!A2:ZZ';
     private string $spreadsheetId;
     private Client $client;
@@ -41,19 +43,22 @@ class GoogleSheet
     public function getSheets(): array
     {
         $service = new \Google_Service_Sheets($this->client);
-        $response = $service->spreadsheets->get($this->spreadsheetId);
 
-        return $response->getSheets();
+        return $service->spreadsheets->get($this->spreadsheetId)->getSheets();
     }
 
-    public function getValues(string $sheetName): ?array
+    public function getValues(string $sheetName): ValueRange
     {
         $sheet = $this->getSheet($sheetName);
         $range = $sheet->getProperties()->getTitle() . self::DEFAULT_RANGE;
         $service = new \Google_Service_Sheets($this->client);
-        $response = $service->spreadsheets_values->get($this->spreadsheetId, $range);
-        sleep(60);
-        return $response->getValues();
+
+        return $this->retry(
+            function() use ($service, $range) {
+                return $service->spreadsheets_values->get($this->spreadsheetId, $range);
+            },
+            self::EXPECTED_ERRORS
+        );
     }
 
     public function getValue(string $sheetName, string $cell): string
@@ -73,27 +78,60 @@ class GoogleSheet
         $sheet = $this->getSheet($sheetName);
         $range = $sheet->getProperties()->getTitle() . self::DEFAULT_RANGE;
         $existingValues = $this->getValues($sheetName);
+        $valueRange = new \Google_Service_Sheets_ValueRange();
+        $valueRange->setValues($values);
+        $valueRange->setRange($range);
         if ($existingValues) {
             $service = new \Google_Service_Sheets($this->client);
             $service->spreadsheets_values->clear($this->spreadsheetId, $range, new ClearValuesRequest());
-            $this->appendValues($sheetName, $values);
-            $this->appendValues($sheetName, $existingValues);
+            $this->appendValues($valueRange);
+            $this->appendValues($existingValues);
         } else {
-            $this->appendValues($sheetName, $values);
+            $this->appendValues($valueRange);
         }
     }
 
-    public function appendValues(string $sheetName, array $values): void
+    public function appendValues(ValueRange $valueRange): void
     {
-        $sheet = $this->getSheet($sheetName);
-        $range = $sheet->getProperties()->getTitle() . self::DEFAULT_RANGE;
+        $range = $valueRange->getRange();
         $service = new \Google_Service_Sheets($this->client);
-        $valueRange = new \Google_Service_Sheets_ValueRange();
-        $valueRange->setValues($values);
+
         $params = [
             'valueInputOption' => 'USER_ENTERED',
         ];
-        $service->spreadsheets_values->append($this->spreadsheetId, $range, $valueRange, $params);
-        sleep(1);
+
+        $this->retry(
+            function() use ($service, $range, $valueRange, $params) {
+                $service->spreadsheets_values->append($this->spreadsheetId, $range, $valueRange, $params);
+            },
+            self::EXPECTED_ERRORS
+        );
+    }
+
+    private function retry(callable $callable, $expectedErrors, $maxRetries = 5, $initialWait = 1.0, $exponent = 2)
+    {
+        if (!is_array($expectedErrors)) {
+            $expectedErrors = [$expectedErrors];
+        }
+
+        try {
+            return call_user_func($callable);
+        } catch (\Exception $e) {
+            $errors = class_parents($e);
+            $errors[] = get_class($e);
+
+            if (!array_intersect($errors, $expectedErrors)) {
+                throw $e;
+            }
+
+            if ($maxRetries > 0) {
+                usleep($initialWait * 1E6);
+
+                return $this->retry($callable, $expectedErrors, $maxRetries - 1, $initialWait * $exponent, $exponent);
+            }
+
+            // max retries reached
+            throw $e;
+        }
     }
 }
