@@ -120,7 +120,7 @@ class TwitterFollowingCommand extends Command
                 [
                     (new \DateTime())->format('Y-m-d'),
                     $twitterInfluencerUsername,
-                    $usernameFollowed,
+                    '=HYPERLINK("https://twitter.com/' . $usernameFollowed . '";" . $usernameFollowed . ")',
                     '👤 ' . $followersCount,
                     '⌛️ ' . $interval->format('%a') . ' ' . 'days ago',
                     $usernameFollowedDescription
