@@ -48,8 +48,7 @@ class GoogleSheet
 
     public function getValues(string $sheetName): ValueRange
     {
-        $sheet = $this->getSheet($sheetName);
-        $range = $sheet->getProperties()->getTitle() . self::DEFAULT_RANGE;
+        $range = $sheetName . self::DEFAULT_RANGE;
         $service = new \Google_Service_Sheets($this->client);
 
         return $this->retry(
@@ -73,8 +72,7 @@ class GoogleSheet
 
     public function prependValues(string $sheetName, array $values): void
     {
-        $sheet = $this->getSheet($sheetName);
-        $range = $sheet->getProperties()->getTitle() . self::DEFAULT_RANGE;
+        $range = $sheetName . self::DEFAULT_RANGE;
         $existingValues = $this->getValues($sheetName);
         $valueRange = new \Google_Service_Sheets_ValueRange();
         $valueRange->setValues($values);
