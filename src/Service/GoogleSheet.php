@@ -52,7 +52,7 @@ class GoogleSheet
         $range = $sheet->getProperties()->getTitle() . self::DEFAULT_RANGE;
         $service = new \Google_Service_Sheets($this->client);
         $response = $service->spreadsheets_values->get($this->spreadsheetId, $range);
-
+        sleep(60);
         return $response->getValues();
     }
 

@@ -97,7 +97,6 @@ class WalletSniperCommand extends Command
                 $output->writeln('<info>Extracting data...</info>');
                 $walletNetWorth = $driver->findElement((WebDriverBy::cssSelector(self::HISTORY_TABLE_DATA['net_worth'])))->getText();
                 $this->extractData($wallet, $lines, $walletNetWorth);
-                sleep(60);
             }
             $output->writeln(
                 sprintf('<info>[%s] Done in %s secs</info>', $this->getDateTime(), sprintf('%0.2f', (microtime(true) - $startTime)))
