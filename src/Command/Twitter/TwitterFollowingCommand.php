@@ -114,13 +114,14 @@ class TwitterFollowingCommand extends Command
         $now = new \DateTime();
         $interval = $now->diff($createdAt);
 
+        $hyperLink = sprintf('=HYPERLINK("https://twitter.com/%s";"%s")', $usernameFollowed, $usernameFollowed);
         $this->googleSheetService->appendValues(
             self::GOOGLE_SHEET_TWITTER_FOLLOWINGS,
             [
                 [
                     (new \DateTime())->format('Y-m-d'),
                     $twitterInfluencerUsername,
-                    '=HYPERLINK("https://twitter.com/' . $usernameFollowed . '";" . $usernameFollowed . ")',
+                    $hyperLink,
                     '👤 ' . $followersCount,
                     '⌛️ ' . $interval->format('%a') . ' ' . 'days ago',
                     $usernameFollowedDescription
