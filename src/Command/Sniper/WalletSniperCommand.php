@@ -276,6 +276,9 @@ class WalletSniperCommand extends Command
                         continue;
                     }
                     $contractName = RegexHelper::getContractName($title);
+                    if ($contractName === 'no_match') {
+                        continue;
+                    }
                     if ((!$wallet->getContracts()) || !in_array($contractName, $wallet->getContracts())) {
                         $isNew = true;
                         $wallet->addContract($contractName);

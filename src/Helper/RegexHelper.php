@@ -12,6 +12,6 @@ class RegexHelper
 
         preg_match($regex, $text, $matches);
 
-        return $matches[0];
+        return $matches[0] ?? 'no_match';
     }
 }
