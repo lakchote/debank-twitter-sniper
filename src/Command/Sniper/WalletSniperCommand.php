@@ -26,8 +26,8 @@ class WalletSniperCommand extends Command
     private const URL = 'https://debank.com/profile/%s/history';
     private const HOST = 'http://localhost:1337';
     private const SLEEP_LOAD_DEBANK = 15;
-    private const GOOGLE_SHEET_WALLETS = 'Wallets New Token Interactions';
-    private const GOOGLE_SHEET_TRANSACTIONS = 'Transactions History';
+    private const GOOGLE_SHEET_WALLETS = 'New Token Interactions';
+    private const GOOGLE_SHEET_TRANSACTIONS = 'Transactions';
 
     private const HISTORY_TABLE_DATA = [
         'main'             => '.History_table__9zhFG',
@@ -42,7 +42,6 @@ class WalletSniperCommand extends Command
     ];
     private const TX_TYPE_VISUALS_MAPPING = [
         'mint'     => '🖼️',
-        'node'     => '💰',
         'buy'      => '🤑',
         'stake'    => '🪙',
         'unstake'  => '💸',
@@ -121,8 +120,6 @@ class WalletSniperCommand extends Command
         switch ($txInput) {
             case stripos($txInput, 'mint') !== false:
                 return 'mint';
-            case stripos($txInput, 'node') !== false:
-                return 'node';
             case stripos($txInput, 'buy') !== false:
                 return 'buy';
             case (stripos($txInput, 'unstake') !== false):
@@ -189,25 +186,6 @@ class WalletSniperCommand extends Command
         $txToken = $line->findElements(WebDriverBy::cssSelector(self::HISTORY_TABLE_DATA['line_tx_token']));
 
         // Single-sided transactions
-        if (count($txToken) === 1 && $txType === 'node') {
-            $title = $txToken[0]->getAttribute('title');
-            $this->addTransaction($wallet, $walletNetWorth, $txType, $txUrl, $title, $txNetwork);
-            if (!in_array($title, $wallet->getNodes())) {
-                $wallet->addNode($title);
-                $this->walletRepository->persist($wallet);
-                $this->appendToGoogleSheet(
-                    self::GOOGLE_SHEET_WALLETS,
-                    $walletName,
-                    $txNetwork,
-                    $txType,
-                    $txUrl,
-                    $walletNetWorth,
-                    $txToken[0]->getDomProperty('textContent')
-                );
-            }
-
-            return;
-        }
         if (count($txToken) === 1 && $txType === 'stake') {
             $title = $txToken[0]->getAttribute('title');
             $this->addTransaction($wallet, $walletNetWorth, $txType, $txUrl, $title, $txNetwork);
@@ -241,11 +219,6 @@ class WalletSniperCommand extends Command
                     if ((!$wallet->getNfts()) || !in_array($title, $wallet->getNfts())) {
                         $isNew = true;
                         $wallet->addNft($title);
-                    }
-                } elseif ($txType === 'node') {
-                    if ((!$wallet->getNodes()) || !in_array($title, $wallet->getNodes())) {
-                        $isNew = true;
-                        $wallet->addNode($title);
                     }
                 } elseif ($txType === 'buy') {
                     if ((!$wallet->getBuys()) || !in_array($title, $wallet->getBuys())) {
@@ -319,8 +292,9 @@ class WalletSniperCommand extends Command
         $transaction->setDate(new \DateTime());
         $wallet->addTransaction($transaction);
         $this->transactionRepository->persist($transaction);
+        $sheetName = sprintf('%s %s', $wallet->getLabel(), self::GOOGLE_SHEET_TRANSACTIONS);
         $this->appendToGoogleSheet(
-            self::GOOGLE_SHEET_TRANSACTIONS,
+            $sheetName,
             $wallet->getName(),
             $txNetwork,
             $txType,
@@ -334,6 +308,7 @@ class WalletSniperCommand extends Command
     {
         $outTextToSkip = [
             'ETH',
+            'BTC',
             'AVAX',
             'BNB',
             'USD',
