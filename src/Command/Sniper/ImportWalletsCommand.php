@@ -27,7 +27,7 @@ class ImportWalletsCommand extends Command
     {
         $output->writeln('<info>Importing wallet...</info>');
 
-        $question = new Question('Which wallets do you want to follow ?' . PHP_EOL . 'Example : 0xe990f34d8303e038f435455a8b85c481b41a8b2d,labelForWallet' . PHP_EOL);
+        $question = new Question('Which wallets do you want to follow ?' . PHP_EOL . 'Example : 0xe990f34d8303e038f435455a8b85c481b41a8b2d,walletName,labelForWallet' . PHP_EOL);
         $question
             ->setValidator(function ($value) {
                 if (empty($value)) {

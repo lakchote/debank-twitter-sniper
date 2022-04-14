@@ -208,6 +208,8 @@ class WalletSniperCommand extends Command
 
         $isNew = false;
         $inText = null;
+        $titles = null;
+        $title = null;
         // Multi-sided transactions
         foreach ($txToken as $k => $tx) {
             if ($k === 0) {
@@ -216,21 +218,33 @@ class WalletSniperCommand extends Command
                 $title = $tx->getAttribute('title');
                 $inText[] = $tx->getDomProperty('textContent');
                 if ($txType === 'mint') {
+                    $titles[] = $title;
+                    $title = RegexHelper::sanitizeTxInput($title);
+                    if ($title === 'no_match') {
+                        continue;
+                    }
                     if ((!$wallet->getNfts()) || !in_array($title, $wallet->getNfts())) {
                         $isNew = true;
                         $wallet->addNft($title);
                     }
                 } elseif ($txType === 'buy') {
+                    $titles[] = $title;
+                    $title = RegexHelper::sanitizeTxInput($title);
+                    if ($title === 'no_match') {
+                        continue;
+                    }
                     if ((!$wallet->getBuys()) || !in_array($title, $wallet->getBuys())) {
                         $isNew = true;
                         $wallet->addBuy($title);
                     }
                 } elseif ($txType === 'stake') {
+                    $titles[] = $title;
                     if ((!$wallet->getStakes()) || !in_array($title, $wallet->getStakes())) {
                         $isNew = true;
                         $wallet->addStake($title);
                     }
                 } elseif ($txType === 'unstake') {
+                    $titles[] = $title;
                     if ((!$wallet->getUnstakes()) || !in_array($title, $wallet->getUnstakes())) {
                         $isNew = true;
                         $wallet->addUnstake($title);
@@ -239,6 +253,7 @@ class WalletSniperCommand extends Command
                     if ($this->isSwapOutTextSkippable($title)) {
                         continue;
                     }
+                    $titles[] = $title;
 
                     if ((!$wallet->getSwaps()) || !in_array($title, $wallet->getSwaps())) {
                         $isNew = true;
@@ -248,19 +263,26 @@ class WalletSniperCommand extends Command
                     if ($this->isSwapOutTextSkippable($title)) {
                         continue;
                     }
-                    $contractName = RegexHelper::getContractName($title);
+                    $title = ucfirst(strtolower($title));
+                    $contractName = RegexHelper::sanitizeTxInput($title);
                     if ($contractName === 'no_match') {
                         continue;
                     }
+                    $titles[] = $title;
                     if ((!$wallet->getContracts()) || !in_array($contractName, $wallet->getContracts())) {
                         $isNew = true;
                         $wallet->addContract($contractName);
 
                     }
                 }
-                $this->addTransaction($wallet, $walletNetWorth, $txType, $txUrl, $title, $txNetwork);
                 $this->walletRepository->persist($wallet);
+                $this->walletRepository->flush();
             }
+        }
+        if (($titles) && count($titles) === 1) {
+            $this->addTransaction($wallet, $walletNetWorth, $txType, $txUrl, $title, $txNetwork);
+        } elseif (($titles) && count($titles) > 1) {
+            $this->addTransaction($wallet, $walletNetWorth, $txType, $txUrl, null, $txNetwork, $titles);
         }
 
         if ($isNew) {
@@ -277,22 +299,25 @@ class WalletSniperCommand extends Command
         }
     }
 
-    private function addTransaction(Wallet $wallet, string $walletNetWorth, string $txType, string $txUrl, string $token, string $txNetwork): void
+    private function addTransaction(Wallet $wallet, string $walletNetWorth, string $txType, string $txUrl, ?string $token, string $txNetwork, ?array $titles = null): void
     {
         $isTxExist = $this->transactionRepository->findOneBy(['txUrl' => $txUrl]);
         if ($isTxExist) {
             return;
         }
-
-        $transaction = new Transaction();
-        $transaction->setWalletNetWorth($walletNetWorth);
-        $transaction->setType($txType);
-        $transaction->setToken($token);
-        $transaction->setTxUrl($txUrl);
-        $transaction->setDate(new \DateTime());
-        $wallet->addTransaction($transaction);
-        $this->transactionRepository->persist($transaction);
         $sheetName = sprintf('%s %s', $wallet->getLabel(), self::GOOGLE_SHEET_TRANSACTIONS);
+
+        if ($titles) {
+            foreach ($titles as $title) {
+                $this->createPersistTransaction($wallet, $walletNetWorth, $txType, $txUrl, $title);
+            }
+        } else {
+            if (strlen(trim($token)) < 1) {
+                return;
+            }
+            $this->createPersistTransaction($wallet, $walletNetWorth, $txType, $txUrl, $token);
+        }
+
         $this->appendToGoogleSheet(
             $sheetName,
             $wallet->getName(),
@@ -300,8 +325,25 @@ class WalletSniperCommand extends Command
             $txType,
             $txUrl,
             $walletNetWorth,
-            $token
+            ($titles) ? implode("\n", $titles) : $token
         );
+    }
+
+    private function createPersistTransaction(Wallet $wallet, string $walletNetWorth, string $txType, string $txUrl, string $token): Transaction
+    {
+        $transaction = new Transaction();
+
+        $transaction->setWalletNetWorth($walletNetWorth);
+        $transaction->setType($txType);
+        $transaction->setToken($token);
+        $transaction->setTxUrl($txUrl);
+        $transaction->setDate(new \DateTime());
+
+        $wallet->addTransaction($transaction);
+        $this->transactionRepository->persist($transaction);
+        $this->transactionRepository->flush();
+
+        return $transaction;
     }
 
     private function isSwapOutTextSkippable(string $outText) : bool
