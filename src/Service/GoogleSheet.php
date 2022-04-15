@@ -5,16 +5,38 @@ declare(strict_types=1);
 namespace App\Service;
 
 use Google\Client;
+use Google\Service\Sheets\AppendCellsRequest;
+use Google\Service\Sheets\BatchUpdateSpreadsheetRequest;
+use Google\Service\Sheets\CellFormat;
+use Google\Service\Sheets\CellData;
+use Google\Service\Sheets\ColorStyle;
+use Google\Service\Sheets\Color;
+use Google\Service\Sheets\RowData;
 use Google\Service\Sheets\ValueRange;
+use Google\Service\Sheets\ExtendedValue;
 
 class GoogleSheet
 {
     private const DEFAULT_RANGE = '!A1:Z1';
+
+    private array $sheetsIdMapping;
+    private string $builderSheetId;
+    private string $degenSheetId;
+    private string $farmerSheetId;
+    private string $shitCoinerSheetId;
     private string $spreadsheetId;
+    private string $traderSheetId;
+
     private Client $client;
 
-    public function __construct(string $spreadsheetId)
-    {
+    public function __construct(
+        string $spreadsheetId,
+        string $shitCoinerSheetId,
+        string $degenSheetId,
+        string $traderSheetId,
+        string $farmerSheetId,
+        string $builderSheetId
+    ) {
         $this->spreadsheetId = $spreadsheetId;
         $this->client = new Client();
         $this->client->setApplicationName('Google Sheets API PHP Quickstart');
@@ -22,6 +44,18 @@ class GoogleSheet
         $this->client->setAuthConfig(__DIR__ . '/../../credentials.json');
         $this->client->setAccessType('offline');
         $this->client->setPrompt('select_account consent');
+        $this->shitCoinerSheetId = $shitCoinerSheetId;
+        $this->degenSheetId = $degenSheetId;
+        $this->traderSheetId = $traderSheetId;
+        $this->farmerSheetId = $farmerSheetId;
+        $this->builderSheetId = $builderSheetId;
+        $this->sheetsIdMapping = [
+            'Shitcoiner' => $this->shitCoinerSheetId,
+            'Degen'      => $this->degenSheetId,
+            'Trader'     => $this->traderSheetId,
+            'Farmer'     => $this->farmerSheetId,
+            'Builder'    => $this->builderSheetId,
+        ];
     }
 
     public function getSheet(string $sheetName): \Google_Service_Sheets_Sheet
@@ -69,21 +103,66 @@ class GoogleSheet
         throw new \Exception('Cell not found');
     }
 
-    public function appendValues(string $sheetName, array $values): void
+    public function appendValues(bool $isNew, string $walletLabel, array $values, ?array $colors = null): void
     {
-        $valueRange = new \Google_Service_Sheets_ValueRange();
-        $valueRange->setValues($values);
         $service = new \Google_Service_Sheets($this->client);
-        $range = $sheetName . self::DEFAULT_RANGE;
-        $params = [
-            'valueInputOption' => 'USER_ENTERED',
-        ];
 
+        $batchUpdateRequest = $this->getBatchUpdateSpreadsheetRequest($isNew, $walletLabel, $values, $colors);
         $this->retry(
-            function() use ($service, $range, $valueRange, $params) {
-                $service->spreadsheets_values->append($this->spreadsheetId, $range, $valueRange, $params);
+            function() use ($service, $batchUpdateRequest) {
+                $service->spreadsheets->batchUpdate($this->spreadsheetId, $batchUpdateRequest);
             }
         );
+    }
+
+    private function getBatchUpdateSpreadsheetRequest(bool $isNew, string $walletLabel, array $values, ?array $colors = null): BatchUpdateSpreadsheetRequest
+    {
+        $batchUpdateRequest = new BatchUpdateSpreadsheetRequest();
+        $appendCellsRequest = new AppendCellsRequest();
+        $appendCellsRequest->setSheetId($isNew ? 0 : $this->sheetsIdMapping[$walletLabel]);
+        $appendCellsRequest->setFields('*');
+        $request = [
+            'appendCells' => $appendCellsRequest
+        ];
+
+        $cells = [];
+        $cellFormat = new CellFormat();
+        $cellFormat->setHorizontalAlignment('CENTER');
+
+        if ($colors) {
+            $colorStyle = new ColorStyle();
+            $color = new Color();
+            $color->setRed($colors[0]);
+            $color->setBlue($colors[1]);
+            $color->setGreen($colors[2]);
+            $colorStyle->setRgbColor($color);
+            $cellFormat->setBackgroundColorStyle($colorStyle);
+        }
+
+        foreach ($values[0] as $cell) {
+            $cellData = new CellData();
+            $cellData->setUserEnteredFormat($cellFormat);
+
+            $extendedValue = new ExtendedValue();
+            if (false !== strpos($cell, 'http')) {
+                $url = sprintf('=HYPERLINK("%s"; "%s")', $cell, $cell);
+                $extendedValue->setFormulaValue($url);
+
+            } else {
+                $extendedValue->setStringValue($cell);
+            }
+
+
+            $cellData->setUserEnteredValue($extendedValue);
+
+            $cells[] = $cellData;
+        }
+        $row = new RowData();
+        $row->setValues($cells);
+        $appendCellsRequest->setRows($row);
+        $batchUpdateRequest->setRequests($request);
+
+        return $batchUpdateRequest;
     }
 
     private function retry(callable $callable, $maxRetries = 15, $initialWait = 5.0, $exponent = 2)

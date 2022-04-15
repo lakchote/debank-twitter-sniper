@@ -26,8 +26,6 @@ class WalletSniperCommand extends Command
     private const URL = 'https://debank.com/profile/%s/history';
     private const HOST = 'http://localhost:1337';
     private const SLEEP_LOAD_DEBANK = 15;
-    private const GOOGLE_SHEET_WALLETS = 'New Token Interactions';
-    private const GOOGLE_SHEET_TRANSACTIONS = 'Transactions';
 
     private const HISTORY_TABLE_DATA = [
         'main'             => '.History_table__9zhFG',
@@ -126,9 +124,9 @@ class WalletSniperCommand extends Command
                 return 'unstake';
             case (stripos($txInput, 'stake') !== false):
                 return 'stake';
-            case (stripos($txInput, 'swap') !== false):
+            case (stripos($txInput, 'swap') !== false) || (stripos($txInput, 'multicall') !== false) || (stripos($txInput, 'sell') !== false):
                 return 'swap';
-            case (stripos($txInput, 'contract') !== false) || (stripos($txInput, 'multicall') !== false):
+            case (stripos($txInput, 'contract') !== false):
                 return 'contract';
             default:
                 return 'other';
@@ -182,6 +180,7 @@ class WalletSniperCommand extends Command
     private function handleMultipleTxs(Wallet $wallet, RemoteWebElement $line, string $walletNetWorth, string $txNetwork, string $txUrl, string $txType): void
     {
         $walletName = $wallet->getName();
+        $walletLabel = $wallet->getLabel();
 
         $txToken = $line->findElements(WebDriverBy::cssSelector(self::HISTORY_TABLE_DATA['line_tx_token']));
 
@@ -193,8 +192,9 @@ class WalletSniperCommand extends Command
                 $wallet->addStake($title);
                 $this->walletRepository->persist($wallet);
                 $this->appendToGoogleSheet(
-                    self::GOOGLE_SHEET_WALLETS,
+                    false,
                     $walletName,
+                    $walletLabel,
                     $txNetwork,
                     $txType,
                     $txUrl,
@@ -219,7 +219,7 @@ class WalletSniperCommand extends Command
                 $inText[] = $tx->getDomProperty('textContent');
                 if ($txType === 'mint') {
                     $titles[] = $title;
-                    $title = RegexHelper::sanitizeTxInput($title);
+                    $title = $this->getSanitizedTokenName($title);
                     if ($title === 'no_match') {
                         continue;
                     }
@@ -229,7 +229,7 @@ class WalletSniperCommand extends Command
                     }
                 } elseif ($txType === 'buy') {
                     $titles[] = $title;
-                    $title = RegexHelper::sanitizeTxInput($title);
+                    $title = $this->getSanitizedTokenName($title);
                     if ($title === 'no_match') {
                         continue;
                     }
@@ -263,16 +263,16 @@ class WalletSniperCommand extends Command
                     if ($this->isSwapOutTextSkippable($title)) {
                         continue;
                     }
-                    $title = ucfirst(strtolower($title));
-                    $contractName = RegexHelper::sanitizeTxInput($title);
+                    $contractName = $this->getSanitizedTokenName($title);
                     if ($contractName === 'no_match') {
                         continue;
                     }
                     $titles[] = $title;
                     if ((!$wallet->getContracts()) || !in_array($contractName, $wallet->getContracts())) {
                         $isNew = true;
-                        $wallet->addContract($contractName);
-
+                        if (!ctype_space($contractName)) {
+                            $wallet->addContract($contractName);
+                        }
                     }
                 }
                 $this->walletRepository->persist($wallet);
@@ -287,8 +287,9 @@ class WalletSniperCommand extends Command
 
         if ($isNew) {
             $this->appendToGoogleSheet(
-                self::GOOGLE_SHEET_WALLETS,
+                true,
                 $walletName,
+                $walletLabel,
                 $txNetwork,
                 $txType,
                 $txUrl,
@@ -305,27 +306,54 @@ class WalletSniperCommand extends Command
         if ($isTxExist) {
             return;
         }
-        $sheetName = sprintf('%s %s', $wallet->getLabel(), self::GOOGLE_SHEET_TRANSACTIONS);
 
+        $hasWalletAlreadyBought = null;
+        $walletId = $wallet->getId();
+        $colors = null;
         if ($titles) {
             foreach ($titles as $title) {
+                if (ctype_space($title)) {
+                    continue;
+                }
+                $title = $this->getSanitizedTokenName($title);
+                if (!$hasWalletAlreadyBought) {
+                    $hasWalletAlreadyBought = $this->transactionRepository->hasWalletAlreadyBoughtToken($title, $walletId, $txUrl);
+                    $hasOtherWalletsAlreadyBought = $this->transactionRepository->hasOtherWalletsAlreadyBoughtToken($title, $walletId);
+                }
                 $this->createPersistTransaction($wallet, $walletNetWorth, $txType, $txUrl, $title);
             }
         } else {
-            if (strlen(trim($token)) < 1) {
+            if (ctype_space($token)) {
                 return;
             }
+            $token = $this->getSanitizedTokenName($token);
+            $hasWalletAlreadyBought = $this->transactionRepository->hasWalletAlreadyBoughtToken($token, $walletId, $txUrl);
+            $hasOtherWalletsAlreadyBought = $this->transactionRepository->hasOtherWalletsAlreadyBoughtToken($token, $walletId);
             $this->createPersistTransaction($wallet, $walletNetWorth, $txType, $txUrl, $token);
         }
 
+        if ($hasWalletAlreadyBought) {
+            $colors[0] = 0.0;
+            $colors[1] = 2.0;
+            $colors[2] = 0.0;
+        }
+        if ($hasOtherWalletsAlreadyBought) {
+            $colors[0] = 2.0;
+            $colors[1] = 0.0;
+            $colors[2] = 0.0;
+        }
+
         $this->appendToGoogleSheet(
-            $sheetName,
+            false,
             $wallet->getName(),
+            $wallet->getLabel(),
             $txNetwork,
             $txType,
             $txUrl,
             $walletNetWorth,
-            ($titles) ? implode("\n", $titles) : $token
+            ($titles) ? implode("\n", $titles) : $token,
+            null,
+            $colors,
         );
     }
 
@@ -373,12 +401,24 @@ class WalletSniperCommand extends Command
         return false;
     }
 
-    private function appendToGoogleSheet(string $sheetName, string $walletName, string $txNetwork, string $txType, string $txUrl, string $walletNetWorth, string $outText, ?array $inText = null): void
+    private function appendToGoogleSheet(
+        bool $isNew,
+        string $walletName,
+        string $walletLabel,
+        string $txNetwork,
+        string $txType,
+        string $txUrl,
+        string $walletNetWorth,
+        string $outText,
+        ?array $inText = null,
+        ?array $colors = null
+    ): void
     {
         $inputData = ($inText) ? $outText . "\n" . implode("\n", $inText) : $outText;
         $inputData = str_replace(['+', '-'], [' +', ' -'], $inputData);
         $this->googleSheetService->appendValues(
-            $sheetName,
+            $isNew,
+            $walletLabel,
             [
                 [
                     (new \DateTime())->format('Y-m-d'),
@@ -388,8 +428,16 @@ class WalletSniperCommand extends Command
                     $inputData,
                     $txUrl,
                     $walletNetWorth
-                ]
-            ]
+                ],
+            ],
+            $colors
         );
+    }
+
+    private function getSanitizedTokenName(string $token) : string
+    {
+        $titleUnfiltered = ucfirst(strtolower($token));
+
+        return RegexHelper::sanitizeTxInput($titleUnfiltered);
     }
 }
