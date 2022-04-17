@@ -334,8 +334,8 @@ class WalletSniperCommand extends Command
 
         if ($hasWalletAlreadyBought) {
             $colors[0] = 0.0;
-            $colors[1] = 2.0;
-            $colors[2] = 0.0;
+            $colors[1] = 0.0;
+            $colors[2] = 2.0;
         }
         if ($hasOtherWalletsAlreadyBought) {
             $colors[0] = 2.0;
