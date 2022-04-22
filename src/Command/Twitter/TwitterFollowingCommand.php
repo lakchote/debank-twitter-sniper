@@ -86,7 +86,7 @@ class TwitterFollowingCommand extends Command
                     sleep(1);
                 } while (array_key_exists('next_token', $json));
             } catch (\Exception $e) {
-                throw new \RuntimeException(sprintf('[%s] An error occured : %s', $this->getDateTime(), $e->getMessage()));
+                throw new \RuntimeException(sprintf('❌ An error occured : %s, backtrace : %s', $e->getMessage(), $e->getTraceAsString()));
             }
 
             $this->twitterInfluencerRepository->flush();

@@ -103,7 +103,24 @@ class GoogleSheet
         throw new \Exception('Cell not found');
     }
 
-    public function appendValues(bool $isNew, string $walletLabel, array $values, ?array $colors = null): void
+    public function appendValues(string $sheetName, array $values): void
+    {
+        $valueRange = new \Google_Service_Sheets_ValueRange();
+        $valueRange->setValues($values);
+        $service = new \Google_Service_Sheets($this->client);
+        $range = $sheetName . self::DEFAULT_RANGE;
+        $params = [
+            'valueInputOption' => 'USER_ENTERED',
+        ];
+
+        $this->retry(
+            function() use ($service, $range, $valueRange, $params) {
+                $service->spreadsheets_values->append($this->spreadsheetId, $range, $valueRange, $params);
+            }
+        );
+    }
+
+    public function appendWalletValues(bool $isNew, string $walletLabel, array $values, ?array $colors = null): void
     {
         $service = new \Google_Service_Sheets($this->client);
 

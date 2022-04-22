@@ -416,7 +416,7 @@ class WalletSniperCommand extends Command
     {
         $inputData = ($inText) ? $outText . "\n" . implode("\n", $inText) : $outText;
         $inputData = str_replace(['+', '-'], [' +', ' -'], $inputData);
-        $this->googleSheetService->appendValues(
+        $this->googleSheetService->appendWalletValues(
             $isNew,
             $walletLabel,
             [
