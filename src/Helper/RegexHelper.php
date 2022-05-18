@@ -6,12 +6,14 @@ namespace App\Helper;
 
 class RegexHelper
 {
-    public static function getContractName(string $text): string
+    public static function sanitizeTxInput(string $text): string
     {
-        $regex = '/\w[^\d,.\s]+\w/';
+        $regex = '/\D+/';
 
         preg_match($regex, $text, $matches);
 
-        return $matches[0];
+        $matches = str_replace('#', '', implode('', $matches));
+
+        return trim($matches);
     }
 }

@@ -25,9 +25,6 @@ class Wallet
     private $nfts = [];
 
     #[ORM\Column(type: 'json', nullable: true)]
-    private $nodes = [];
-
-    #[ORM\Column(type: 'json', nullable: true)]
     private $buys = [];
 
     #[ORM\Column(type: 'json', nullable: true)]
@@ -50,6 +47,9 @@ class Wallet
 
     #[ORM\OneToMany(mappedBy: 'wallet', targetEntity: Transaction::class)]
     private $transactions;
+
+    #[ORM\Column(type: 'string', length: 255)]
+    private $label;
 
     public function __construct()
     {
@@ -89,16 +89,6 @@ class Wallet
     public function addNft(string $nft): void
     {
         $this->nfts[] = $nft;
-    }
-
-    public function getNodes(): ?array
-    {
-        return $this->nodes;
-    }
-
-    public function addNode(string $node): void
-    {
-        $this->nodes[] = $node;
     }
 
     public function getBuys(): ?array
@@ -196,5 +186,15 @@ class Wallet
         }
 
         return $this;
+    }
+
+    public function getLabel(): string
+    {
+        return $this->label;
+    }
+
+    public function setLabel(string $label): void
+    {
+        $this->label = $label;
     }
 }

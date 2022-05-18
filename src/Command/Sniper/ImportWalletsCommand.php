@@ -27,7 +27,7 @@ class ImportWalletsCommand extends Command
     {
         $output->writeln('<info>Importing wallet...</info>');
 
-        $question = new Question('Which wallets do you want to follow ?' . PHP_EOL . 'Example : 0xe990f34d8303e038f435455a8b85c481b41a8b2d,labelForWallet' . PHP_EOL);
+        $question = new Question('Which wallets do you want to follow ?' . PHP_EOL . 'Example : 0xe990f34d8303e038f435455a8b85c481b41a8b2d,walletName,labelForWallet' . PHP_EOL);
         $question
             ->setValidator(function ($value) {
                 if (empty($value)) {
@@ -42,8 +42,8 @@ class ImportWalletsCommand extends Command
 
         foreach ($wallets as $wallet) {
             $fields = explode(',', $wallet);
-            if (count($fields) !== 2) {
-                throw new \RuntimeException('Wallet address and label must be separated by a comma');
+            if (count($fields) !== 3) {
+                throw new \RuntimeException('Wallet address, name, and wallet label must be separated by a comma');
             }
 
             $isWalletExists = $this->walletRepository->findOneBy(['address' => $fields[0]]);
@@ -64,6 +64,7 @@ class ImportWalletsCommand extends Command
         $data = array_map('trim', $data);
         $wallet = new Wallet();
         $wallet->setName($data[1]);
+        $wallet->setLabel($data[2]);
         $wallet->setAddress($data[0]);
         $wallet->setAutoBuy(false);
         $wallet->setToSnipe(true);

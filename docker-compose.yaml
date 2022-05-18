@@ -7,3 +7,6 @@ services:
             MYSQL_DATABASE: main
         ports:
             - '34231:3306'
+        volumes:
+            - './data/mysql:/var/lib/mysql'
+

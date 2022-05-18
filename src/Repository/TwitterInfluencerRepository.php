@@ -31,7 +31,7 @@ class TwitterInfluencerRepository extends ServiceEntityRepository
             ->execute();
     }
 
-    public function countFollowingsWithUsername(string $username): int
+    public function countFollowingsWithUsername(string $username)
     {
         return $this->createQueryBuilder('t')
             ->select('count(t)')

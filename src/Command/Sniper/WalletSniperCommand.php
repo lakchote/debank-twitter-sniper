@@ -9,6 +9,7 @@ use App\Entity\Wallet;
 use App\Helper\RegexHelper;
 use App\Repository\TransactionRepository;
 use App\Repository\WalletRepository;
+use App\Service\GoogleSheet;
 use Facebook\WebDriver\Chrome\ChromeOptions;
 use Facebook\WebDriver\Remote\DesiredCapabilities;
 use Facebook\WebDriver\Remote\RemoteWebDriver;
@@ -17,8 +18,6 @@ use Facebook\WebDriver\WebDriverBy;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\Notifier\ChatterInterface;
-use Symfony\Component\Notifier\Message\ChatMessage;
 
 class WalletSniperCommand extends Command
 {
@@ -41,7 +40,6 @@ class WalletSniperCommand extends Command
     ];
     private const TX_TYPE_VISUALS_MAPPING = [
         'mint'     => '🖼️',
-        'node'     => '💰',
         'buy'      => '🤑',
         'stake'    => '🪙',
         'unstake'  => '💸',
@@ -49,17 +47,20 @@ class WalletSniperCommand extends Command
         'contract' => '📝',
     ];
 
-    private ChatterInterface $chatter;
     private WalletRepository $walletRepository;
     private TransactionRepository $transactionRepository;
+    private GoogleSheet $googleSheetService;
 
-    public function __construct(ChatterInterface $chatter, WalletRepository $walletRepository, TransactionRepository $transactionRepository)
-    {
+    public function __construct(
+        WalletRepository $walletRepository,
+        TransactionRepository $transactionRepository,
+        GoogleSheet $googleSheetService,
+    ) {
         parent::__construct();
 
-        $this->chatter = $chatter;
         $this->walletRepository = $walletRepository;
         $this->transactionRepository = $transactionRepository;
+        $this->googleSheetService = $googleSheetService;
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -87,12 +88,6 @@ class WalletSniperCommand extends Command
                     $output->writeln(
                         sprintf('<info>[%s] No transactions found.</info>', $this->getDateTime())
                     );
-
-                    $this->chatter->send(
-                        new ChatMessage(
-                            sprintf('⚠️ No transactions found for %s', $wallet->getName())
-                        )
-                    );
                 }
 
                 $output->writeln('<info>Extracting data...</info>');
@@ -105,16 +100,9 @@ class WalletSniperCommand extends Command
             $driver->quit();
 
             return 0;
-
         } catch (\Throwable $e) {
             $output->writeln(
-                sprintf('❌ An error occured : %s, line : %s', $e->getMessage(), $e->getLine())
-            );
-
-            $this->chatter->send(
-            new ChatMessage(
-            sprintf('❌ An error occured : %s, line : %s', $e->getMessage(), $e->getLine())
-            )
+                sprintf('❌ An error occured : %s, backtrace : %s', $e->getMessage(), $e->getTraceAsString())
             );
 
             $driver->quit();
@@ -128,15 +116,13 @@ class WalletSniperCommand extends Command
         switch ($txInput) {
             case stripos($txInput, 'mint') !== false:
                 return 'mint';
-            case stripos($txInput, 'node') !== false:
-                return 'node';
             case stripos($txInput, 'buy') !== false:
                 return 'buy';
             case (stripos($txInput, 'unstake') !== false):
                 return 'unstake';
             case (stripos($txInput, 'stake') !== false):
                 return 'stake';
-            case (stripos($txInput, 'swap') !== false):
+            case (stripos($txInput, 'swap') !== false) || (stripos($txInput, 'multicall') !== false) || (stripos($txInput, 'sell') !== false):
                 return 'swap';
             case (stripos($txInput, 'contract') !== false):
                 return 'contract';
@@ -154,10 +140,10 @@ class WalletSniperCommand extends Command
     {
         $capabilities = DesiredCapabilities::chrome();
         $chromeOptions = new ChromeOptions();
-        $chromeOptions->addArguments(['--headless']);
+        $chromeOptions->addArguments(['--headless', '--disable-dev-shm-usage', '--no-sandbox']);
         $capabilities->setCapability(ChromeOptions::CAPABILITY_W3C, $chromeOptions);
 
-        return RemoteWebDriver::create(self::HOST, $capabilities, 3600000,3600000);
+        return RemoteWebDriver::create(self::HOST, $capabilities, 3600000, 3600000);
     }
 
     private function extractData(Wallet $wallet, array $lines, string $walletNetWorth): void
@@ -192,41 +178,26 @@ class WalletSniperCommand extends Command
     private function handleMultipleTxs(Wallet $wallet, RemoteWebElement $line, string $walletNetWorth, string $txNetwork, string $txUrl, string $txType): void
     {
         $walletName = $wallet->getName();
+        $walletLabel = $wallet->getLabel();
 
         $txToken = $line->findElements(WebDriverBy::cssSelector(self::HISTORY_TABLE_DATA['line_tx_token']));
 
         // Single-sided transactions
-        if (count($txToken) === 1 && $txType === 'node') {
-            $title = $txToken[0]->getAttribute('title');
-            $this->addTransaction($wallet, $walletNetWorth, $txType, $txUrl, $title);
-            if (!in_array($title, $wallet->getNodes())) {
-                $wallet->addNode($title);
-                $this->walletRepository->persist($wallet);
-                $this->sendSingleTxChatMessage(
-                    $txToken[0]->getDomProperty('textContent'),
-                    $txType,
-                    $txNetwork,
-                    $txUrl,
-                    $walletName,
-                    $walletNetWorth
-                );
-            }
-
-            return;
-        }
         if (count($txToken) === 1 && $txType === 'stake') {
             $title = $txToken[0]->getAttribute('title');
-            $this->addTransaction($wallet, $walletNetWorth, $txType, $txUrl, $title);
+            $this->addTransaction($wallet, $walletNetWorth, $txType, $txUrl, $title, $txNetwork);
             if ((!$wallet->getStakes()) || !in_array($title, $wallet->getStakes())) {
                 $wallet->addStake($title);
                 $this->walletRepository->persist($wallet);
-                $this->sendSingleTxChatMessage(
-                    $txToken[0]->getDomProperty('textContent'),
-                    $txType,
-                    $txNetwork,
-                    $txUrl,
+                $this->appendToGoogleSheet(
+                    false,
                     $walletName,
-                    $walletNetWorth
+                    $walletLabel,
+                    $txNetwork,
+                    $txType,
+                    $txUrl,
+                    $walletNetWorth,
+                    $txToken[0]->getDomProperty('textContent')
                 );
             }
 
@@ -234,6 +205,9 @@ class WalletSniperCommand extends Command
         }
 
         $isNew = false;
+        $inText = null;
+        $titles = null;
+        $title = null;
         // Multi-sided transactions
         foreach ($txToken as $k => $tx) {
             if ($k === 0) {
@@ -242,26 +216,33 @@ class WalletSniperCommand extends Command
                 $title = $tx->getAttribute('title');
                 $inText[] = $tx->getDomProperty('textContent');
                 if ($txType === 'mint') {
+                    $titles[] = $title;
+                    $title = $this->getSanitizedTokenName($title);
+                    if ($title === 'no_match') {
+                        continue;
+                    }
                     if ((!$wallet->getNfts()) || !in_array($title, $wallet->getNfts())) {
                         $isNew = true;
                         $wallet->addNft($title);
                     }
-                } elseif ($txType === 'node') {
-                    if ((!$wallet->getNodes()) || !in_array($title, $wallet->getNodes())) {
-                        $isNew = true;
-                        $wallet->addNode($title);
-                    }
                 } elseif ($txType === 'buy') {
+                    $titles[] = $title;
+                    $title = $this->getSanitizedTokenName($title);
+                    if ($title === 'no_match') {
+                        continue;
+                    }
                     if ((!$wallet->getBuys()) || !in_array($title, $wallet->getBuys())) {
                         $isNew = true;
                         $wallet->addBuy($title);
                     }
                 } elseif ($txType === 'stake') {
+                    $titles[] = $title;
                     if ((!$wallet->getStakes()) || !in_array($title, $wallet->getStakes())) {
                         $isNew = true;
                         $wallet->addStake($title);
                     }
                 } elseif ($txType === 'unstake') {
+                    $titles[] = $title;
                     if ((!$wallet->getUnstakes()) || !in_array($title, $wallet->getUnstakes())) {
                         $isNew = true;
                         $wallet->addUnstake($title);
@@ -270,6 +251,7 @@ class WalletSniperCommand extends Command
                     if ($this->isSwapOutTextSkippable($title)) {
                         continue;
                     }
+                    $titles[] = $title;
 
                     if ((!$wallet->getSwaps()) || !in_array($title, $wallet->getSwaps())) {
                         $isNew = true;
@@ -279,52 +261,122 @@ class WalletSniperCommand extends Command
                     if ($this->isSwapOutTextSkippable($title)) {
                         continue;
                     }
-                    $contractName = RegexHelper::getContractName($title);
+                    $contractName = $this->getSanitizedTokenName($title);
+                    if ($contractName === 'no_match') {
+                        continue;
+                    }
+                    $titles[] = $title;
                     if ((!$wallet->getContracts()) || !in_array($contractName, $wallet->getContracts())) {
                         $isNew = true;
-                        $wallet->addContract($contractName);
-
+                        if (!ctype_space($contractName)) {
+                            $wallet->addContract($contractName);
+                        }
                     }
                 }
-                $this->addTransaction($wallet, $walletNetWorth, $txType, $txUrl, $title);
                 $this->walletRepository->persist($wallet);
+                $this->walletRepository->flush();
             }
+        }
+        if (($titles) && count($titles) === 1) {
+            $this->addTransaction($wallet, $walletNetWorth, $txType, $txUrl, $title, $txNetwork);
+        } elseif (($titles) && count($titles) > 1) {
+            $this->addTransaction($wallet, $walletNetWorth, $txType, $txUrl, null, $txNetwork, $titles);
         }
 
         if ($isNew) {
-            $this->sendMultipleTxChatMessage(
-                $outText,
-                implode("\n", $inText),
-                $txType,
-                $txNetwork,
-                $txUrl,
+            $this->appendToGoogleSheet(
+                true,
                 $walletName,
-                $walletNetWorth
+                $walletLabel,
+                $txNetwork,
+                $txType,
+                $txUrl,
+                $walletNetWorth,
+                $outText,
+                $inText,
             );
         }
     }
 
-    private function addTransaction(Wallet $wallet, string $walletNetWorth, string $txType, string $txUrl, string $token): void
+    private function addTransaction(Wallet $wallet, string $walletNetWorth, string $txType, string $txUrl, ?string $token, string $txNetwork, ?array $titles = null): void
     {
         $isTxExist = $this->transactionRepository->findOneBy(['txUrl' => $txUrl]);
         if ($isTxExist) {
             return;
         }
 
+        $hasWalletAlreadyBought = null;
+        $walletId = $wallet->getId();
+        $colors = null;
+        if ($titles) {
+            foreach ($titles as $title) {
+                if (ctype_space($title)) {
+                    continue;
+                }
+                $title = $this->getSanitizedTokenName($title);
+                if (!$hasWalletAlreadyBought) {
+                    $hasWalletAlreadyBought = $this->transactionRepository->hasWalletAlreadyBoughtToken($title, $walletId, $txUrl);
+                    $hasOtherWalletsAlreadyBought = $this->transactionRepository->hasOtherWalletsAlreadyBoughtToken($title, $walletId);
+                }
+                $this->createPersistTransaction($wallet, $walletNetWorth, $txType, $txUrl, $title);
+            }
+        } else {
+            if (ctype_space($token)) {
+                return;
+            }
+            $token = $this->getSanitizedTokenName($token);
+            $hasWalletAlreadyBought = $this->transactionRepository->hasWalletAlreadyBoughtToken($token, $walletId, $txUrl);
+            $hasOtherWalletsAlreadyBought = $this->transactionRepository->hasOtherWalletsAlreadyBoughtToken($token, $walletId);
+            $this->createPersistTransaction($wallet, $walletNetWorth, $txType, $txUrl, $token);
+        }
+
+        if ($hasWalletAlreadyBought) {
+            $colors[0] = 0.0;
+            $colors[1] = 0.0;
+            $colors[2] = 2.0;
+        }
+        if ($hasOtherWalletsAlreadyBought) {
+            $colors[0] = 2.0;
+            $colors[1] = 0.0;
+            $colors[2] = 0.0;
+        }
+
+        $this->appendToGoogleSheet(
+            false,
+            $wallet->getName(),
+            $wallet->getLabel(),
+            $txNetwork,
+            $txType,
+            $txUrl,
+            $walletNetWorth,
+            ($titles) ? implode("\n", $titles) : $token,
+            null,
+            $colors,
+        );
+    }
+
+    private function createPersistTransaction(Wallet $wallet, string $walletNetWorth, string $txType, string $txUrl, string $token): Transaction
+    {
         $transaction = new Transaction();
+
         $transaction->setWalletNetWorth($walletNetWorth);
         $transaction->setType($txType);
         $transaction->setToken($token);
         $transaction->setTxUrl($txUrl);
         $transaction->setDate(new \DateTime());
+
         $wallet->addTransaction($transaction);
         $this->transactionRepository->persist($transaction);
+        $this->transactionRepository->flush();
+
+        return $transaction;
     }
 
-    private function isSwapOutTextSkippable(string $outText) : bool
+    private function isSwapOutTextSkippable(string $outText): bool
     {
         $outTextToSkip = [
             'ETH',
+            'BTC',
             'AVAX',
             'BNB',
             'USD',
@@ -347,50 +399,42 @@ class WalletSniperCommand extends Command
         return false;
     }
 
-    private function sendSingleTxChatMessage(string $outText, string $txType, string $txNetwork, string $txUrl, string $walletName, string $walletNetWorth): void
-    {
-        $this->chatter->send(
-            new ChatMessage(
-                sprintf(
-                    "%s [%s] New %s transaction found for (%s - %s) : \n\n %s \n URL : %s",
-                    self::TX_TYPE_VISUALS_MAPPING[$txType],
-                    $txType,
-                    $txNetwork,
+    private function appendToGoogleSheet(
+        bool $isNew,
+        string $walletName,
+        string $walletLabel,
+        string $txNetwork,
+        string $txType,
+        string $txUrl,
+        string $walletNetWorth,
+        string $outText,
+        ?array $inText = null,
+        ?array $colors = null
+    ): void {
+        $inputData = ($inText) ? $outText . "\n" . implode("\n", $inText) : $outText;
+        $inputData = str_replace(['+', '-'], [' +', ' -'], $inputData);
+        $this->googleSheetService->appendWalletValues(
+            $isNew,
+            $walletLabel,
+            [
+                [
+                    (new \DateTime())->format('Y-m-d'),
                     $walletName,
-                    $walletNetWorth,
-                    $outText,
-                    $txUrl
-                )
-            )
+                    $txNetwork,
+                    self::TX_TYPE_VISUALS_MAPPING[$txType] . '' . $txType,
+                    $inputData,
+                    $txUrl,
+                    $walletNetWorth
+                ],
+            ],
+            $colors
         );
-        sleep(1);
     }
 
-    private function sendMultipleTxChatMessage(
-        string $outText,
-        string $inText,
-        string $txType,
-        string $txNetwork,
-        string $txUrl,
-        string $walletName,
-        string $walletNetWorth
-    ): void
+    private function getSanitizedTokenName(string $token): string
     {
-        $this->chatter->send(
-            new ChatMessage(
-                sprintf(
-                    "%s [%s] New %s transaction found for (%s - %s) : \n\n %s \n %s \n\n URL : %s",
-                    self::TX_TYPE_VISUALS_MAPPING[$txType],
-                    $txType,
-                    $txNetwork,
-                    $walletName,
-                    $walletNetWorth,
-                    $outText,
-                    $inText,
-                    $txUrl
-                )
-            )
-        );
-        sleep(1);
+        $titleUnfiltered = ucfirst(strtolower($token));
+
+        return RegexHelper::sanitizeTxInput($titleUnfiltered);
     }
 }
