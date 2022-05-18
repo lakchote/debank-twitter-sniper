@@ -15,6 +15,14 @@ class ImportWalletsCommand extends Command
 {
     protected static $defaultName = 'sniper:import';
 
+    private const ALLOWED_WALLET_LABELS = [
+        'Shitcoiner',
+        'Degen',
+        'Trader',
+        'Builder',
+        'Farmer'
+    ];
+
     private WalletRepository $walletRepository;
 
     public function __construct(WalletRepository $walletRepository)
@@ -27,7 +35,9 @@ class ImportWalletsCommand extends Command
     {
         $output->writeln('<info>Importing wallet...</info>');
 
-        $question = new Question('Which wallets do you want to follow ?' . PHP_EOL . 'Example : 0xe990f34d8303e038f435455a8b85c481b41a8b2d,walletName,labelForWallet' . PHP_EOL);
+        $question = new Question('Which wallets do you want to follow ?' . PHP_EOL . 'Example : 0xe990f34d8303e038f435455a8b85c481b41a8b2d,walletName,walletLabel' . PHP_EOL);
+        $output->writeln('<info>walletLabel MUST be one of the followings : Shitcoiner,Degen,Trader,Builder,Farmer</info>');
+
         $question
             ->setValidator(function ($value) {
                 if (empty($value)) {
@@ -38,23 +48,34 @@ class ImportWalletsCommand extends Command
             });
         $question->setMultiline(true);
         $answer = $this->getHelper('question')->ask($input, $output, $question);
-        $wallets = array_map('trim', explode("\n", $answer));
+        $walletsInput = array_map('trim', explode("\n", $answer));
 
-        foreach ($wallets as $wallet) {
-            $fields = explode(',', $wallet);
+        foreach ($walletsInput as $inputLine) {
+            $fields = explode(',', $inputLine);
             if (count($fields) !== 3) {
-                throw new \RuntimeException('Wallet address, name, and wallet label must be separated by a comma');
+                throw new \RuntimeException('There must be 3 fields only : Wallet address,name,wallet label (in that order) separated by a comma.');
             }
 
             $isWalletExists = $this->walletRepository->findOneBy(['address' => $fields[0]]);
             if ($isWalletExists) {
+                $output->writeln([
+                    "<info>Wallet $fields[0] already exists.</info>",
+                    "<info>Skipping...</info>"
+                    ]);
                 continue;
             }
+
+            if (!in_array($fields[2], self::ALLOWED_WALLET_LABELS)) {
+                throw new \RuntimeException(
+                    sprintf('Wallet label MUST be one of the followings : Shitcoiner,Degen,Trader,Builder,Farmer. You entered "%s"', $fields[2])
+                );
+            }
+
             $output->writeln('Importing wallet: ' . $fields[1]);
             $this->importWallet($fields);
         }
 
-        $output->writeln('<info>Wallets imported.</info>');
+        $output->writeln('<info>Wallets import finished.</info>');
 
         return 0;
     }

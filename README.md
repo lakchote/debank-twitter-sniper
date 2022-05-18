@@ -28,6 +28,7 @@ Another challenge: participating in MEV in the future as a personal challenge.
 ### What sets it apart ? ###
 
 - New tokens interactions are written in a dedicated sheet to find new opportunities
+- Dedicated sheets for different wallets (e.g. Shitcoiner,Degen,Trader,Builder,Farmer)
 - different colors to highlight:
   - repeated buys of token X from same wallet (green)
   - repeated buys of token X from other wallets you track (red)
@@ -85,7 +86,7 @@ Feel free to make it better, tailor it to your needs.
 
 Here are some ideas I've thought about:
 
-* use Adapter design pattern to have several data sources to export data to (ie Telegram, Discord...)
+* use Adapter design pattern to have several data sources to export data to (e.g Telegram, Discord...)
 * implement auto buy option based on a list of parameters met (example : 2 wallets already bought it, X token is Y% lower than ATH)
 * calculate profits per tx for every wallet when applicable
 * add a new color when X tx represents Y% of wallet's networth (to highlight conviction bets)
