@@ -8,7 +8,7 @@
 
 ### What is it ? ###
 
-Dear anon, Debank Twitter Sniper is a tool that identifies new opportunities by: 
+Dear anon, Debank Twitter Sniper is a PoC tool that identifies new opportunities by: 
 - watching wallets you specify on **31 blockchains** (as the time of writing)
 - sniping new Twitter followings from accounts you choose in an easy-to-read format
 
@@ -18,6 +18,12 @@ It tracks:
 - 🤑 buys  
 - 🔄 swaps
 - 📝 contract interactions 
+
+I've opensourced this proof-of-concept because I don't have time to make it evolve/improve it.
+
+I'm currently learning Solidity, EVM and want to land a job in a web3 company after that.
+
+Another challenge: participating in MEV in the future as a personal challenge.
 
 ### What sets it apart ? ###
 
@@ -72,6 +78,18 @@ Example :
 ```
 
 Use [crontab.guru](https://crontab.guru/) to find the right cron command for your needs.
+
+### TODO (Improvements to make) ###
+
+Feel free to make it better, tailor it to your needs.
+
+Here are some ideas I've thought about:
+
+* use Adapter design pattern to have several data sources to export data to (ie Telegram, Discord...)
+* implement auto buy option based on a list of parameters met (example : 2 wallets already bought it, X token is Y% lower than ATH)
+* calculate profits per tx for every wallet when applicable
+* add a new color when X tx represents Y% of wallet's networth (to highlight conviction bets)
+* add a way to export data to a CSV file
 
 ### Contact ###
 

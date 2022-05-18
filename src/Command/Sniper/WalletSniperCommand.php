@@ -186,7 +186,7 @@ class WalletSniperCommand extends Command
         if (count($txToken) === 1 && $txType === 'stake') {
             $title = $txToken[0]->getAttribute('title');
             $this->addTransaction($wallet, $walletNetWorth, $txType, $txUrl, $title, $txNetwork);
-            if ((!$wallet->getStakes()) || !in_array($title, $wallet->getStakes())) {
+            if (in_array($title, $wallet->getStakes())) {
                 $wallet->addStake($title);
                 $this->walletRepository->persist($wallet);
                 $this->appendToGoogleSheet(
@@ -213,70 +213,16 @@ class WalletSniperCommand extends Command
             if ($k === 0) {
                 $outText = $tx->getDomProperty('textContent');
             } else {
-                $title = $tx->getAttribute('title');
+                $titleUnfiltered = $tx->getAttribute('title');
                 $inText[] = $tx->getDomProperty('textContent');
-                if ($txType === 'mint') {
-                    $titles[] = $title;
-                    $title = $this->getSanitizedTokenName($title);
-                    if ($title === 'no_match') {
-                        continue;
-                    }
-                    if ((!$wallet->getNfts()) || !in_array($title, $wallet->getNfts())) {
-                        $isNew = true;
-                        $wallet->addNft($title);
-                    }
-                } elseif ($txType === 'buy') {
-                    $titles[] = $title;
-                    $title = $this->getSanitizedTokenName($title);
-                    if ($title === 'no_match') {
-                        continue;
-                    }
-                    if ((!$wallet->getBuys()) || !in_array($title, $wallet->getBuys())) {
-                        $isNew = true;
-                        $wallet->addBuy($title);
-                    }
-                } elseif ($txType === 'stake') {
-                    $titles[] = $title;
-                    if ((!$wallet->getStakes()) || !in_array($title, $wallet->getStakes())) {
-                        $isNew = true;
-                        $wallet->addStake($title);
-                    }
-                } elseif ($txType === 'unstake') {
-                    $titles[] = $title;
-                    if ((!$wallet->getUnstakes()) || !in_array($title, $wallet->getUnstakes())) {
-                        $isNew = true;
-                        $wallet->addUnstake($title);
-                    }
-                } elseif ($txType === 'swap') {
-                    if ($this->isSwapOutTextSkippable($title)) {
-                        continue;
-                    }
-                    $titles[] = $title;
-
-                    if ((!$wallet->getSwaps()) || !in_array($title, $wallet->getSwaps())) {
-                        $isNew = true;
-                        $wallet->addSwap($title);
-                    }
-                } elseif ($txType === 'contract') {
-                    if ($this->isSwapOutTextSkippable($title)) {
-                        continue;
-                    }
-                    $contractName = $this->getSanitizedTokenName($title);
-                    if ($contractName === 'no_match') {
-                        continue;
-                    }
-                    $titles[] = $title;
-                    if ((!$wallet->getContracts()) || !in_array($contractName, $wallet->getContracts())) {
-                        $isNew = true;
-                        if (!ctype_space($contractName)) {
-                            $wallet->addContract($contractName);
-                        }
-                    }
-                }
-                $this->walletRepository->persist($wallet);
-                $this->walletRepository->flush();
+                $title = $this->getSanitizedTokenName($titleUnfiltered);
+                $titles[] = $title;
+                $this->handleTxType($wallet, $title, $txType, $isNew);
             }
+            $this->walletRepository->persist($wallet);
+            $this->walletRepository->flush();
         }
+
         if (($titles) && count($titles) === 1) {
             $this->addTransaction($wallet, $walletNetWorth, $txType, $txUrl, $title, $txNetwork);
         } elseif (($titles) && count($titles) > 1) {
@@ -372,33 +318,6 @@ class WalletSniperCommand extends Command
         return $transaction;
     }
 
-    private function isSwapOutTextSkippable(string $outText): bool
-    {
-        $outTextToSkip = [
-            'ETH',
-            'BTC',
-            'AVAX',
-            'BNB',
-            'USD',
-            'DAI',
-            'CRO',
-            'FTM',
-            'METIS',
-            'MIM',
-            'UST',
-            'ELK',
-            'MATIC'
-        ];
-
-        foreach ($outTextToSkip as $text) {
-            if (stripos($outText, $text) !== false) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     private function appendToGoogleSheet(
         bool $isNew,
         string $walletName,
@@ -436,5 +355,51 @@ class WalletSniperCommand extends Command
         $titleUnfiltered = ucfirst(strtolower($token));
 
         return RegexHelper::sanitizeTxInput($titleUnfiltered);
+    }
+
+    private function handleTxType(Wallet $wallet, string $title, string $txType, bool &$isNew): void
+    {
+        switch ($txType) {
+            case $txType === 'mint':
+                if (!in_array($title, $wallet->getNfts())) {
+                    $isNew = true;
+                    $wallet->addNft($title);
+                }
+                break;
+            case $txType === 'buy':
+                if (!in_array($title, $wallet->getBuys())) {
+                    $isNew = true;
+                    $wallet->addBuy($title);
+                }
+                break;
+            case $txType === 'stake':
+                if (!in_array($title, $wallet->getStakes())) {
+                    $isNew = true;
+                    $wallet->addStake($title);
+                }
+                break;
+            case $txType === 'unstake':
+                if (!in_array($title, $wallet->getUnstakes())) {
+                    $isNew = true;
+                    $wallet->addUnstake($title);
+                }
+                break;
+            case $txType === 'swap':
+                if (!in_array($title, $wallet->getSwaps())) {
+                    $isNew = true;
+                    $wallet->addSwap($title);
+                }
+                break;
+            case $txType === 'contract':
+                if (!in_array($title, $wallet->getContracts())) {
+                    $isNew = true;
+                    if (!ctype_space($title)) {
+                        $wallet->addContract($title);
+                    }
+                }
+                break;
+            default:
+                throw new \LogicException(sprintf('Unknown tx type: %s', $txType));
+        }
     }
 }
