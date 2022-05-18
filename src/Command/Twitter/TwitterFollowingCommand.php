@@ -30,8 +30,7 @@ class TwitterFollowingCommand extends Command
         TwitterInfluencerRepository $twitterInfluencerRepository,
         GoogleSheet $googleSheetService,
         string $bearerToken,
-    )
-    {
+    ) {
         parent::__construct();
 
         $this->httpClient = $httpClient;
@@ -108,8 +107,7 @@ class TwitterFollowingCommand extends Command
         string $usernameFollowedDescription,
         string $usernameFollowedCreatedAt,
         int $followersCount
-    ): void
-    {
+    ): void {
         $createdAt = new \DateTime($usernameFollowedCreatedAt);
         $now = new \DateTime();
         $interval = $now->diff($createdAt);

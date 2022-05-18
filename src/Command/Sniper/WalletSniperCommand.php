@@ -55,8 +55,7 @@ class WalletSniperCommand extends Command
         WalletRepository $walletRepository,
         TransactionRepository $transactionRepository,
         GoogleSheet $googleSheetService,
-    )
-    {
+    ) {
         parent::__construct();
 
         $this->walletRepository = $walletRepository;
@@ -101,7 +100,6 @@ class WalletSniperCommand extends Command
             $driver->quit();
 
             return 0;
-
         } catch (\Throwable $e) {
             $output->writeln(
                 sprintf('❌ An error occured : %s, backtrace : %s', $e->getMessage(), $e->getTraceAsString())
@@ -145,7 +143,7 @@ class WalletSniperCommand extends Command
         $chromeOptions->addArguments(['--headless', '--disable-dev-shm-usage', '--no-sandbox']);
         $capabilities->setCapability(ChromeOptions::CAPABILITY_W3C, $chromeOptions);
 
-        return RemoteWebDriver::create(self::HOST, $capabilities, 3600000,3600000);
+        return RemoteWebDriver::create(self::HOST, $capabilities, 3600000, 3600000);
     }
 
     private function extractData(Wallet $wallet, array $lines, string $walletNetWorth): void
@@ -374,7 +372,7 @@ class WalletSniperCommand extends Command
         return $transaction;
     }
 
-    private function isSwapOutTextSkippable(string $outText) : bool
+    private function isSwapOutTextSkippable(string $outText): bool
     {
         $outTextToSkip = [
             'ETH',
@@ -412,8 +410,7 @@ class WalletSniperCommand extends Command
         string $outText,
         ?array $inText = null,
         ?array $colors = null
-    ): void
-    {
+    ): void {
         $inputData = ($inText) ? $outText . "\n" . implode("\n", $inText) : $outText;
         $inputData = str_replace(['+', '-'], [' +', ' -'], $inputData);
         $this->googleSheetService->appendWalletValues(
@@ -434,7 +431,7 @@ class WalletSniperCommand extends Command
         );
     }
 
-    private function getSanitizedTokenName(string $token) : string
+    private function getSanitizedTokenName(string $token): string
     {
         $titleUnfiltered = ucfirst(strtolower($token));
 

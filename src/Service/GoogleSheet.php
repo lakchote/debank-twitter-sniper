@@ -85,7 +85,7 @@ class GoogleSheet
         $service = new \Google_Service_Sheets($this->client);
 
         return $this->retry(
-            function() use ($service, $range) {
+            function () use ($service, $range) {
                 return $service->spreadsheets_values->get($this->spreadsheetId, $range);
             }
         );
@@ -114,7 +114,7 @@ class GoogleSheet
         ];
 
         $this->retry(
-            function() use ($service, $range, $valueRange, $params) {
+            function () use ($service, $range, $valueRange, $params) {
                 $service->spreadsheets_values->append($this->spreadsheetId, $range, $valueRange, $params);
             }
         );
@@ -126,7 +126,7 @@ class GoogleSheet
 
         $batchUpdateRequest = $this->getBatchUpdateSpreadsheetRequest($isNew, $walletLabel, $values, $colors);
         $this->retry(
-            function() use ($service, $batchUpdateRequest) {
+            function () use ($service, $batchUpdateRequest) {
                 $service->spreadsheets->batchUpdate($this->spreadsheetId, $batchUpdateRequest);
             }
         );
@@ -164,7 +164,6 @@ class GoogleSheet
             if (false !== strpos($cell, 'http')) {
                 $url = sprintf('=HYPERLINK("%s"; "%s")', $cell, $cell);
                 $extendedValue->setFormulaValue($url);
-
             } else {
                 $extendedValue->setStringValue($cell);
             }
@@ -187,7 +186,6 @@ class GoogleSheet
         try {
             return call_user_func($callable);
         } catch (\Throwable $e) {
-
             if ($maxRetries > 0) {
                 $sleep = $initialWait * 1E6;
 
