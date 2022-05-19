@@ -50,6 +50,7 @@ Twitter followings Sniper
 
 - PHP 8.0+
 - Docker-compose
+- [Composer](https://getcomposer.org/)
 - [Chromedriver](https://chromedriver.chromium.org/) - must be the *same version* as your Chrome browser
 
 
@@ -60,7 +61,7 @@ Twitter followings Sniper
 4. Add the email present in credentials.json to the Google Sheet as an admin
 5. Make a copy of .env in .env.local and specify the different spreadsheets IDs (you can view the IDs directly in the blank template - ex: 1RbEsgJ4FoDWfwlDonE3ktS7FM5uJkayV4_zpLsfnRq3)
 6. Run ```composer install```
-7. Run ```/usr/bin/chromedriver --port=1337```
+7. Run ```{CHROMEDRIVER_PATH} --port=1337 (e.g /usr/bin/chromedriver --port=1337)```
 8. Run ```make start```
 9. Run ```make init (use Ctrl+D when you have finished to enter output)```
 
