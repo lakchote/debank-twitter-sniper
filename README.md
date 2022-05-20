@@ -55,15 +55,16 @@ Twitter followings Sniper
 
 
 ### Installation ###
-1. [Make a copy of the blank Google Sheet template here](https://docs.google.com/spreadsheets/d/1RbEvgJ4FoDWfwlDonE3ktS7FM5uJkayV4_zpLsfnRO4/edit?usp=sharing)
-2. [Create Google service account credentials](https://developers.google.com/workspace/guides/create-credentials#service-account)
-3. Download credentials.json and put it in the root project dir
-4. Add the email present in credentials.json to the Google Sheet as an admin
-5. Make a copy of .env in .env.local and specify the different spreadsheets IDs (you can view the IDs directly in the blank template - ex: 1RbEsgJ4FoDWfwlDonE3ktS7FM5uJkayV4_zpLsfnRq3)
-6. Run ```composer install```
-7. Run ```{CHROMEDRIVER_PATH} --port=1337 (e.g /usr/bin/chromedriver --port=1337)```
-8. Run ```make start```
-9. Run ```make init (use Ctrl+D when you have finished to enter output)```
+1. [Create a Twitter developer account (if you haven't already) and get a Bearer Token](https://developer.twitter.com/en/apply-for-access)
+2. [Make a copy of the blank Google Sheet template here](https://docs.google.com/spreadsheets/d/1RbEvgJ4FoDWfwlDonE3ktS7FM5uJkayV4_zpLsfnRO4/edit?usp=sharing)
+3. [Create Google service account credentials](https://developers.google.com/workspace/guides/create-credentials#service-account)
+4. Download credentials.json and put it in the root project dir
+5. Add the email present in credentials.json to the Google Sheet as an admin
+6. Make a copy of the .env file in a new file called .env.local and specify the different input values
+7. Run ```composer install```
+8. Run ```{CHROMEDRIVER_PATH} --port=1337 (e.g /usr/bin/chromedriver --port=1337)```
+9. Run ```make start```
+10. Run ```make init (use Ctrl+D when you have finished to enter output)```
 
 General commands are found in Makefile.
 
